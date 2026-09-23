@@ -123,7 +123,7 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 
 <script>
 // ---- Pool de cartes ----
-const points = {commune:1, rare:3, epique:7, legendaire:15};
+const points = {commune:1, rare:5, epique:20, legendaire:50};
 const labels = {commune:"Commune", rare:"Rare", epique:"Épique", legendaire:"Légendaire"};
 
 const rawPool = {
@@ -287,7 +287,7 @@ document.getElementById("pseudoSave").addEventListener("click", async ()=>{
 let packBusy = false;
 const PACKS = {
   commun:  {cooldownMs: 0, count:1, label:"Pack Commun",  btnId:"openCommunBtn", cdId:"cdCommun"},
-  rarete:  {cooldownMs: 0, count:3, label:"Pack Rareté",  btnId:"openRareteBtn", cdId:"cdRarete"}
+  rarete:  {cooldownMs: 0, count:5, label:"Pack Rareté",  btnId:"openRareteBtn", cdId:"cdRarete"}
 };
 function lastOpen(key){ return parseInt(localStorage.getItem("pdp_last_"+key)||"0",10); }
 function setLastOpen(key){ localStorage.setItem("pdp_last_"+key, Date.now()); }
