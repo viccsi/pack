@@ -128,13 +128,16 @@ const labels = {commune:"Commune", rare:"Rare", epique:"Épique", legendaire:"L�
 
 const rawPool = {
   commune: ["Firmin","Rayane","Cône Nir","Rafael","Louis","Victor","Édouard","Théo","Simon"],
-  rare: ["Enayar","Ludwig der gute","Simpos","Vic","Raf","La Qualitat","Johanna"],
-  epique: ["JUGB","FifiM","Edoud","Trio de choc"],
+  rare: ["Enayar","Ludwig der gute","Simpos","Vic","Raf","La Qualitat","Johanna", "Pallaisson"],
+  epique: ["JUGB","FifiM","Edoud","Trio de choc", "Pension"],
   legendaire: ["Mecs de st laurent","Gémal"]
 };
 const IMAGES = {
   "Rafael": "./rafael.png",
-  "Louis": "./louis.png"
+  "Louis": "./louis.png",
+  "Firmin": "./firmin.png",
+  "Pallaisson": "./paillaisson.png",
+  "Pension": "./pension.png"
 };
 const cards = [];
 for(const [rarity, names] of Object.entries(rawPool)){
