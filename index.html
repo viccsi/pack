@@ -36,9 +36,10 @@ main{max-width:900px;margin:0 auto;padding:0 16px 60px}
 .card.locked{filter:grayscale(1) brightness(.5);opacity:.5!important;animation:none!important}
 .card .count{position:absolute;bottom:8px;right:10px;font-size:.7rem;background:rgba(0,0,0,.4);padding:2px 7px;border-radius:20px}
 .card .lvl{position:absolute;top:8px;right:10px;font-size:.65rem;background:rgba(0,0,0,.35);padding:2px 7px;border-radius:20px}
+.card .stars{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:1px;line-height:1;font-size:.85rem;color:#ffd23a;text-shadow:0 1px 3px rgba(0,0,0,.6);text-align:right}
 .lvlup-btn{position:absolute;bottom:6px;left:6px;right:6px;background:var(--legendaire);color:#111;border:none;border-radius:8px;padding:5px;font-size:.65rem;font-weight:700;cursor:pointer}
 .pack-count{text-align:center;color:var(--sub);font-size:.85rem;margin-top:-8px}
-.reveal{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-top:24px}
+.reveal{display:grid;grid-template-columns:repeat(auto-fill,130px);gap:14px;margin-top:24px;justify-content:center}
 .card{position:relative;height:180px;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:10px;color:#fff;opacity:1;background-size:cover;background-position:center;box-shadow:0 8px 20px rgba(0,0,0,.35)}
 .card.r-commune{background-color:var(--commune);background-image:linear-gradient(160deg,#5c6178,var(--commune))}
 .card.r-rare{background-color:var(--rare);background-image:linear-gradient(160deg,#1d5ea8,var(--rare))}
@@ -62,6 +63,13 @@ main{max-width:900px;margin:0 auto;padding:0 16px 60px}
 .stage-wrap .card .name{font-size:1.2rem}
 .stage-wrap .card .title{font-size:.85rem}
 .stage-wrap .card .qmark{font-size:3rem}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px;cursor:pointer}
+.modal-overlay .card{width:min(80vw,280px);aspect-ratio:220/290;height:auto;max-height:75vh;cursor:default}
+.modal-overlay .card .name{font-size:1.3rem}
+.modal-overlay .card .title{font-size:.9rem}
+.modal-overlay .card .stars{font-size:1.1rem;top:12px;right:12px}
+.modal-overlay .card .rar{font-size:.8rem}
+.modal-close{position:absolute;top:16px;right:20px;color:#fff;font-size:1.8rem;background:none;border:none;cursor:pointer;line-height:1}
 .recap-title{text-align:center;margin-top:24px;color:var(--sub);font-size:.9rem}
 .recap-total{text-align:center;font-weight:700;color:var(--legendaire);margin-top:6px}
 .section-title{margin:36px 0 10px;font-size:1.1rem;border-bottom:1px solid #333759;padding-bottom:6px}
@@ -74,6 +82,9 @@ tr:nth-child(even){background:rgba(255,255,255,.03)}
 footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 .account-hint{text-align:center;color:var(--sub);font-size:.78rem;margin-top:-8px;margin-bottom:6px}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
 <header>
@@ -82,9 +93,11 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 </header>
 
 <div class="pseudo-bar">
-  <input id="emailInput" type="email" placeholder="Adresse e-mail" style="width:200px">
-  <input id="pseudoInput" placeholder="Pseudo affiché" maxlength="16">
-  <button id="pseudoSave" class="open-btn" style="margin:0;padding:8px 16px;font-size:.85rem">Créer / Se connecter</button>
+  <input id="userInput" placeholder="Identifiant" maxlength="16" style="width:150px">
+  <input id="passInput" type="password" placeholder="Mot de passe" style="width:150px">
+  <button id="signupBtn" class="open-btn" style="margin:0;padding:8px 14px;font-size:.85rem">Créer mon compte</button>
+  <button id="loginBtn" class="open-btn" style="margin:0;padding:8px 14px;font-size:.85rem;background:#31354d">Se connecter</button>
+  <button id="logoutBtn" class="open-btn" style="margin:0;padding:8px 14px;font-size:.85rem;background:#5c1a2a;display:none">Déconnexion</button>
   <span class="score" id="myScore"></span>
 </div>
 <div class="account-hint" id="accountHint"></div>
@@ -128,8 +141,8 @@ const labels = {commune:"Commune", rare:"Rare", epique:"Épique", legendaire:"L�
 
 const rawPool = {
   commune: ["Firmin","Rayane","Cône Nir","Rafael","Louis","Victor","Édouard","Théo","Simon"],
-  rare: ["Giclette","La Qualitat","Johanna", "Paillasson"],
-  epique: ["JUGB","FifiM","Edoud","Trio de choc", "Pension"],
+  rare: ["Giclette","La Qualitat","Johanna","Paillasson"],
+  epique: ["JUGB","FifiM","Edoud","Trio de choc","Pension"],
   legendaire: ["Mecs de st laurent","Gémal"]
 };
 const IMAGES = {
@@ -161,7 +174,7 @@ function drawCard(){
 }
 
 // ---- Etat local ----
-let email = localStorage.getItem("pdp_email") || "";
+let uid = null;
 let pseudo = localStorage.getItem("pdp_pseudo") || "";
 let myScore = parseInt(localStorage.getItem("pdp_score")||"0",10);
 let coins = parseInt(localStorage.getItem("pdp_coins")||"0",10);
@@ -176,20 +189,8 @@ for(const k in collection){
 // seuil de copies + coût en pièces pour passer du niveau courant au suivant
 const LEVEL_THRESHOLDS = {1:2, 2:4, 3:10, 4:20}; // niveau 5 = max, pas de seuil
 const LEVEL_COSTS = {1:10, 2:25, 3:60, 4:150};
-document.getElementById("emailInput").value = email;
-document.getElementById("pseudoInput").value = pseudo;
 updateScoreDisplay();
 updatePackCount();
-updateAccountHint();
-
-function updateAccountHint(){
-  document.getElementById("accountHint").textContent = email
-    ? `Connecté avec ${email}`
-    : "Crée un compte avec ton e-mail pour sauvegarder ta progression et apparaître au classement.";
-}
-function isValidEmail(v){
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-}
 function updateScoreDisplay(){
   document.getElementById("myScore").textContent = pseudo ? `${pseudo} — ${myScore} pts — 🪙 ${coins}` : "";
 }
@@ -207,6 +208,30 @@ function switchTab(tab){
   document.getElementById("tabCollection").classList.toggle("active", tab==="collection");
   if(tab==="collection") renderCollection();
 }
+function openCardZoom(c, entry){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  const div = document.createElement("div");
+  div.className = `card r-${c.rarity}`;
+  if(c.image){
+    div.style.backgroundImage = `linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.55)), url('${c.image}')`;
+  }
+  const level = entry.level;
+  const threshold = LEVEL_THRESHOLDS[level];
+  const progress = threshold ? `${entry.count}/${threshold}` : "MAX";
+  const stars = Array(level).fill("★").join("<br>");
+  div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><div class="stars">${stars}</div><div class="name">${c.name}</div><div class="title">${progress}</div>`;
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "modal-close";
+  closeBtn.textContent = "✕";
+  overlay.appendChild(div);
+  overlay.appendChild(closeBtn);
+  overlay.addEventListener("click", (e)=>{
+    if(e.target === overlay || e.target === closeBtn) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+}
+
 function renderCollection(){
   const grid = document.getElementById("collectionGrid");
   grid.innerHTML = "";
@@ -228,7 +253,13 @@ function renderCollection(){
       const cost = LEVEL_COSTS[level];
       const canLevelUp = threshold && entry.count >= threshold;
       const progress = threshold ? `${entry.count}/${threshold}` : "MAX";
-      div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><span class="lvl">Niv. ${level}</span><div class="name">${c.name}</div><div class="title">${progress}</div>${canLevelUp?`<button class="lvlup-btn" data-name="${c.name}">⬆ Niv. ${level+1} — 🪙${cost}</button>`:""}`;
+      const stars = Array(level).fill("★").join("<br>");
+      div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><div class="stars">${stars}</div><div class="name">${c.name}</div><div class="title">${progress}</div>${canLevelUp?`<button class="lvlup-btn" data-name="${c.name}">⬆ Niv. ${level+1} — 🪙${cost}</button>`:""}`;
+      div.style.cursor = "pointer";
+      div.addEventListener("click", (e)=>{
+        if(e.target.classList.contains("lvlup-btn")) return;
+        openCardZoom(c, entry);
+      });
     }
     grid.appendChild(div);
   });
@@ -252,35 +283,94 @@ function renderCollection(){
   });
 }
 
-document.getElementById("pseudoSave").addEventListener("click", async ()=>{
-  const e = document.getElementById("emailInput").value.trim().toLowerCase();
-  const p = document.getElementById("pseudoInput").value.trim();
-  if(!isValidEmail(e)){ alert("Adresse e-mail invalide"); return; }
-  if(!p){ alert("Choisis un pseudo affiché"); return; }
-  email = e;
-  pseudo = p.slice(0,16);
-  localStorage.setItem("pdp_email", email);
-  localStorage.setItem("pdp_pseudo", pseudo);
-  updateAccountHint();
-  updateScoreDisplay();
-  // si un compte existant pour cet e-mail existe déjà côté serveur, on récupère sa progression
-  if(dbNs){
+// ---- Firebase (auth + classement) ----
+const firebaseConfig = {
+  apiKey: "AIzaSyDkBjbMuD-yT7yUl4i5Hs9pb0iYxD3fz4A",
+  authDomain: "pack-aba2f.firebaseapp.com",
+  projectId: "pack-aba2f",
+  storageBucket: "pack-aba2f.firebasestorage.app",
+  messagingSenderId: "647377058412",
+  appId: "1:647377058412:web:f566d2d5b690ef8da93649"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const firestore = firebase.firestore();
+
+function usernameToEmail(u){
+  return u.toLowerCase().replace(/[^a-z0-9_-]/g, "") + "@pack.local";
+}
+function setAccountStatus(msg, isError){
+  const el = document.getElementById("accountHint");
+  el.textContent = msg;
+  el.style.color = isError ? "#ff6b6b" : "";
+}
+function setLoggedInUI(loggedIn){
+  document.getElementById("userInput").disabled = loggedIn;
+  document.getElementById("passInput").style.display = loggedIn ? "none" : "";
+  document.getElementById("signupBtn").style.display = loggedIn ? "none" : "";
+  document.getElementById("loginBtn").style.display = loggedIn ? "none" : "";
+  document.getElementById("logoutBtn").style.display = loggedIn ? "" : "none";
+}
+
+document.getElementById("signupBtn").addEventListener("click", async ()=>{
+  const u = document.getElementById("userInput").value.trim();
+  const pass = document.getElementById("passInput").value;
+  if(!u || u.length < 3){ setAccountStatus("Identifiant trop court (3 caractères min).", true); return; }
+  if(!pass || pass.length < 6){ setAccountStatus("Mot de passe trop court (6 caractères min).", true); return; }
+  try{
+    await auth.createUserWithEmailAndPassword(usernameToEmail(u), pass);
+    pseudo = u.slice(0,16);
+    localStorage.setItem("pdp_pseudo", pseudo);
+  }catch(err){
+    setAccountStatus(err.code === "auth/email-already-in-use" ? "Cet identifiant est déjà pris." : "Erreur : " + err.message, true);
+  }
+});
+
+document.getElementById("loginBtn").addEventListener("click", async ()=>{
+  const u = document.getElementById("userInput").value.trim();
+  const pass = document.getElementById("passInput").value;
+  if(!u || !pass){ setAccountStatus("Renseigne ton identifiant et ton mot de passe.", true); return; }
+  try{
+    await auth.signInWithEmailAndPassword(usernameToEmail(u), pass);
+    pseudo = u.slice(0,16);
+    localStorage.setItem("pdp_pseudo", pseudo);
+  }catch(err){
+    setAccountStatus("Identifiant ou mot de passe incorrect.", true);
+  }
+});
+
+document.getElementById("logoutBtn").addEventListener("click", ()=>{
+  auth.signOut();
+});
+
+auth.onAuthStateChanged(async (user)=>{
+  if(user){
+    uid = user.uid;
+    setLoggedInUI(true);
+    document.getElementById("userInput").value = pseudo;
+    setAccountStatus(`Connecté en tant que ${pseudo}`);
+    // récupère la progression déjà sauvegardée pour ce compte (score/classement)
     try{
-      const existing = await dbNs.doc("scores/"+encodeURIComponent(email)).get();
-      if(existing && existing.data){
-        myScore = existing.data.score || myScore;
-        packsOpened = existing.data.packsOpened || packsOpened;
-        pseudo = existing.data.pseudo || pseudo;
+      const doc = await firestore.collection("scores").doc(uid).get();
+      if(doc.exists){
+        const d = doc.data();
+        myScore = d.score || myScore;
+        packsOpened = d.packsOpened || packsOpened;
+        pseudo = d.pseudo || pseudo;
         localStorage.setItem("pdp_score", myScore);
         localStorage.setItem("pdp_packs", packsOpened);
         localStorage.setItem("pdp_pseudo", pseudo);
-        document.getElementById("pseudoInput").value = pseudo;
-        updateScoreDisplay();
-        updatePackCount();
+        document.getElementById("userInput").value = pseudo;
       }
-    }catch(e){ /* pas de compte existant, on continue */ }
+    }catch(e){ /* pas grave, on repart de la progression locale */ }
+    updateScoreDisplay();
+    updatePackCount();
+    pushScore();
+  }else{
+    uid = null;
+    setLoggedInUI(false);
+    setAccountStatus("Crée un compte (identifiant + mot de passe) pour sauvegarder ta progression et apparaître au classement.");
   }
-  pushScore();
 });
 
 // ---- Cooldowns ----
@@ -325,7 +415,7 @@ const SUSPENSE_MS = {commune:800, rare:1400, epique:2100, legendaire:3000};
 function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
 async function openPack(key){
-  if(!email){ document.getElementById("emailInput").focus(); return; }
+  if(!uid){ document.getElementById("userInput").focus(); setAccountStatus("Connecte-toi ou crée un compte pour ouvrir un pack.", true); return; }
   if(remainingMs(key) > 0 || packBusy) return;
   packBusy = true;
   document.getElementById("openCommunBtn").disabled = true;
@@ -414,30 +504,22 @@ async function openPack(key){
 document.getElementById("openCommunBtn").addEventListener("click", ()=>openPack("commun"));
 document.getElementById("openRareteBtn").addEventListener("click", ()=>openPack("rarete"));
 
-// ---- Leaderboard partagé (capacité db) ----
-let dbNs = null;
-(async ()=>{
-  try{
-    dbNs = await claude.use("db");
-  }catch(e){ dbNs = null; }
-  if(!dbNs){
-    document.getElementById("leaderboard").innerHTML = '<div class="empty">Classement en ligne indisponible dans cet aperçu.</div>';
-    return;
-  }
-  if(email) pushScore();
-  try{
-    dbNs.collection("scores").onSnapshot((docs)=>{
-      renderLeaderboard(docs);
-    });
-  }catch(e){
+// ---- Leaderboard partagé (Firestore) ----
+try{
+  firestore.collection("scores").orderBy("score","desc").limit(15).onSnapshot((snap)=>{
+    const docs = snap.docs.map(d=>d.data());
+    renderLeaderboard(docs);
+  }, (err)=>{
     document.getElementById("leaderboard").innerHTML = '<div class="empty">Classement indisponible pour le moment.</div>';
-  }
-})();
+  });
+}catch(e){
+  document.getElementById("leaderboard").innerHTML = '<div class="empty">Classement indisponible pour le moment.</div>';
+}
 
 async function pushScore(){
-  if(!dbNs || !email) return;
+  if(!uid) return;
   try{
-    await dbNs.doc("scores/"+encodeURIComponent(email)).set({pseudo, score: myScore, packsOpened}, {merge:true});
+    await firestore.collection("scores").doc(uid).set({pseudo, score: myScore, packsOpened}, {merge:true});
   }catch(e){ /* silencieux */ }
 }
 
