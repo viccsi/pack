@@ -184,7 +184,7 @@ let collection = {};
 const LEVEL_THRESHOLDS = {1:2, 2:4, 3:10, 4:20}; // niveau 5 = max, pas de seuil
 const LEVEL_COSTS = {1:10, 2:25, 3:60, 4:150};
 
-function localKey(){ return "pdp_account_"+uid; }
+function localKey(){ return uid ? "pdp_account_"+uid : ""; }
 function saveLocalCache(){
   if(!uid) return;
   localStorage.setItem(localKey(), JSON.stringify({pseudo, score:myScore, coins, packsOpened, collection}));
@@ -194,11 +194,30 @@ function loadLocalCache(){
   try{ return JSON.parse(localStorage.getItem(localKey())||"null"); }catch(e){ return null; }
 }
 async function saveProgress(){
-  saveLocalCache();
-  if(!uid) return;
+  if(!uid) return false;
+
+  const data = {
+    uid,
+    pseudo: String(pseudo || "").slice(0,16),
+    score: Number(myScore) || 0,
+    coins: Number(coins) || 0,
+    packsOpened: Number(packsOpened) || 0,
+    collection: migrateCollection(collection),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  // Cache séparé par UID : il ne peut pas mélanger les comptes.
+  localStorage.setItem(localKey(), JSON.stringify(data));
+
   try{
-    await firestore.collection("scores").doc(uid).set({pseudo, score:myScore, coins, packsOpened, collection}, {merge:true});
-  }catch(e){ /* silencieux, la sauvegarde locale reste à jour */ }
+    // Un seul document par utilisateur : scores/{uid}.
+    await firestore.collection("scores").doc(uid).set(data, {merge:true});
+    return true;
+  }catch(e){
+    console.error("Erreur de sauvegarde Firestore:", e);
+    setAccountStatus("Sauvegarde locale active ; vérifie les règles Firestore.", true);
+    return false;
+  }
 }
 function resetLocalState(){
   myScore = 0; coins = 0; packsOpened = 0; collection = {};
@@ -359,9 +378,16 @@ document.getElementById("logoutBtn").addEventListener("click", ()=>{
 });
 
 function migrateCollection(coll){
-  const out = coll || {};
+  const out = (coll && typeof coll === "object") ? {...coll} : {};
   for(const k in out){
     if(typeof out[k] === "number") out[k] = {count: out[k], level: 1};
+    else if(!out[k] || typeof out[k] !== "object") delete out[k];
+    else {
+      out[k] = {
+        count: Number.isFinite(Number(out[k].count)) ? Number(out[k].count) : 0,
+        level: Number.isFinite(Number(out[k].level)) ? Number(out[k].level) : 1
+      };
+    }
   }
   return out;
 }
@@ -385,22 +411,28 @@ auth.onAuthStateChanged(async (user)=>{
     updatePackCount();
     setAccountStatus(`Connecté en tant que ${pseudo}`);
 
-    // Firestore fait foi : écrase le cache local si une version plus à jour existe
+    // Firestore est la source distante de vérité pour CE UID.
+    let remoteLoaded = false;
     try{
       const doc = await firestore.collection("scores").doc(uid).get();
       if(doc.exists){
-        const d = doc.data();
+        const d = doc.data() || {};
         pseudo = d.pseudo || pseudo;
-        myScore = d.score || 0;
-        coins = d.coins || 0;
-        packsOpened = d.packsOpened || 0;
+        myScore = Number(d.score) || 0;
+        coins = Number(d.coins) || 0;
+        packsOpened = Number(d.packsOpened) || 0;
         collection = migrateCollection(d.collection);
         document.getElementById("userInput").value = pseudo;
+        remoteLoaded = true;
       }
-    }catch(e){ /* pas grave, on reste sur le cache local */ }
+    }catch(e){
+      console.error("Lecture Firestore impossible:", e);
+    }
+
     updateScoreDisplay();
     updatePackCount();
-    saveProgress();
+    // Ne jamais écraser Firestore avec un cache potentiellement ancien si la lecture distante a échoué.
+    if(remoteLoaded || !cached) await saveProgress();
     if(document.getElementById("view-collection").style.display !== "none") renderCollection();
   }else{
     uid = null;
@@ -416,8 +448,11 @@ const PACKS = {
   commun:  {cooldownMs: 0, count:1, label:"Pack Commun",  btnId:"openCommunBtn", cdId:"cdCommun"},
   rarete:  {cooldownMs: 0, count:5, label:"Pack Rareté",  btnId:"openRareteBtn", cdId:"cdRarete"}
 };
-function lastOpen(key){ return parseInt(localStorage.getItem("pdp_last_"+key)||"0",10); }
-function setLastOpen(key){ localStorage.setItem("pdp_last_"+key, Date.now()); }
+function cooldownKey(key){
+  return uid ? `pdp_last_${uid}_${key}` : `pdp_last_${key}`;
+}
+function lastOpen(key){ return parseInt(localStorage.getItem(cooldownKey(key))||"0",10); }
+function setLastOpen(key){ localStorage.setItem(cooldownKey(key), Date.now()); }
 function remainingMs(key){
   const elapsed = Date.now() - lastOpen(key);
   return Math.max(0, PACKS[key].cooldownMs - elapsed);
@@ -549,17 +584,38 @@ try{
   document.getElementById("leaderboard").innerHTML = '<div class="empty">Classement indisponible pour le moment.</div>';
 }
 
+function escapeHtml(value){
+  return String(value ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
 function renderLeaderboard(docs){
   const el = document.getElementById("leaderboard");
   if(!docs || !docs.length){
     el.innerHTML = '<div class="empty">Aucun score pour l\'instant — ouvre le premier pack !</div>';
     return;
   }
-  const rows = docs.map(d=>d.data || d).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,15);
+
+  const rows = docs
+    .map(d => d.data || d)
+    .sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0))
+    .slice(0,15);
+
   let html = "<table><tr><th class='rank'>#</th><th>Pseudo</th><th>Score</th><th>Packs</th></tr>";
   rows.forEach((r,i)=>{
-    const mine = r.pseudo === pseudo ? "me" : "";
-    html += `<tr class="${mine}"><td class="rank">${i+1}</td><td>${r.pseudo}</td><td>${r.score||0}</td><td>${r.packsOpened||0}</td></tr>`;
+    // Le classement identifie le joueur par son UID/document Firestore,
+    // pas uniquement par le pseudo.
+    const mine = r.uid && r.uid === uid ? "me" : "";
+    html += `<tr class="${mine}">
+      <td class="rank">${i+1}</td>
+      <td>${escapeHtml(r.pseudo || "Joueur")}</td>
+      <td>${Number(r.score)||0}</td>
+      <td>${Number(r.packsOpened)||0}</td>
+    </tr>`;
   });
   html += "</table>";
   el.innerHTML = html;
