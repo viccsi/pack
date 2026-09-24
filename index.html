@@ -173,22 +173,38 @@ function drawCard(){
   return candidates[Math.floor(Math.random()*candidates.length)];
 }
 
-// ---- Etat local ----
+// ---- Etat local (chargé par compte, voir onAuthStateChanged) ----
 let uid = null;
 let pseudo = localStorage.getItem("pdp_pseudo") || "";
-let myScore = parseInt(localStorage.getItem("pdp_score")||"0",10);
-let coins = parseInt(localStorage.getItem("pdp_coins")||"0",10);
-let packsOpened = parseInt(localStorage.getItem("pdp_packs")||"0",10);
-let collection = JSON.parse(localStorage.getItem("pdp_collection")||"{}");
-// migration ancien format (nombre simple) -> {count, level}
-for(const k in collection){
-  if(typeof collection[k] === "number"){
-    collection[k] = {count: collection[k], level: 1};
-  }
-}
+let myScore = 0;
+let coins = 0;
+let packsOpened = 0;
+let collection = {};
 // seuil de copies + coût en pièces pour passer du niveau courant au suivant
 const LEVEL_THRESHOLDS = {1:2, 2:4, 3:10, 4:20}; // niveau 5 = max, pas de seuil
 const LEVEL_COSTS = {1:10, 2:25, 3:60, 4:150};
+
+function localKey(){ return "pdp_account_"+uid; }
+function saveLocalCache(){
+  if(!uid) return;
+  localStorage.setItem(localKey(), JSON.stringify({pseudo, score:myScore, coins, packsOpened, collection}));
+}
+function loadLocalCache(){
+  if(!uid) return null;
+  try{ return JSON.parse(localStorage.getItem(localKey())||"null"); }catch(e){ return null; }
+}
+async function saveProgress(){
+  saveLocalCache();
+  if(!uid) return;
+  try{
+    await firestore.collection("scores").doc(uid).set({pseudo, score:myScore, coins, packsOpened, collection}, {merge:true});
+  }catch(e){ /* silencieux, la sauvegarde locale reste à jour */ }
+}
+function resetLocalState(){
+  myScore = 0; coins = 0; packsOpened = 0; collection = {};
+  updateScoreDisplay(); updatePackCount();
+}
+
 updateScoreDisplay();
 updatePackCount();
 function updateScoreDisplay(){
@@ -275,8 +291,7 @@ function renderCollection(){
       coins -= cost;
       entry.count -= threshold; // le surplus de copies est reporté au niveau suivant
       entry.level += 1;
-      localStorage.setItem("pdp_coins", coins);
-      localStorage.setItem("pdp_collection", JSON.stringify(collection));
+      saveProgress();
       updateScoreDisplay();
       renderCollection();
     });
@@ -343,31 +358,53 @@ document.getElementById("logoutBtn").addEventListener("click", ()=>{
   auth.signOut();
 });
 
+function migrateCollection(coll){
+  const out = coll || {};
+  for(const k in out){
+    if(typeof out[k] === "number") out[k] = {count: out[k], level: 1};
+  }
+  return out;
+}
+
 auth.onAuthStateChanged(async (user)=>{
   if(user){
     uid = user.uid;
     setLoggedInUI(true);
+
+    // affichage instantané depuis le cache local propre à ce compte, le temps de récupérer Firestore
+    const cached = loadLocalCache();
+    if(cached){
+      pseudo = cached.pseudo || pseudo;
+      myScore = cached.score || 0;
+      coins = cached.coins || 0;
+      packsOpened = cached.packsOpened || 0;
+      collection = migrateCollection(cached.collection);
+    }
     document.getElementById("userInput").value = pseudo;
+    updateScoreDisplay();
+    updatePackCount();
     setAccountStatus(`Connecté en tant que ${pseudo}`);
-    // récupère la progression déjà sauvegardée pour ce compte (score/classement)
+
+    // Firestore fait foi : écrase le cache local si une version plus à jour existe
     try{
       const doc = await firestore.collection("scores").doc(uid).get();
       if(doc.exists){
         const d = doc.data();
-        myScore = d.score || myScore;
-        packsOpened = d.packsOpened || packsOpened;
         pseudo = d.pseudo || pseudo;
-        localStorage.setItem("pdp_score", myScore);
-        localStorage.setItem("pdp_packs", packsOpened);
-        localStorage.setItem("pdp_pseudo", pseudo);
+        myScore = d.score || 0;
+        coins = d.coins || 0;
+        packsOpened = d.packsOpened || 0;
+        collection = migrateCollection(d.collection);
         document.getElementById("userInput").value = pseudo;
       }
-    }catch(e){ /* pas grave, on repart de la progression locale */ }
+    }catch(e){ /* pas grave, on reste sur le cache local */ }
     updateScoreDisplay();
     updatePackCount();
-    pushScore();
+    saveProgress();
+    if(document.getElementById("view-collection").style.display !== "none") renderCollection();
   }else{
     uid = null;
+    resetLocalState();
     setLoggedInUI(false);
     setAccountStatus("Crée un compte (identifiant + mot de passe) pour sauvegarder ta progression et apparaître au classement.");
   }
@@ -491,14 +528,10 @@ async function openPack(key){
   myScore += gained;
   coins += gained;
   packsOpened += 1;
-  localStorage.setItem("pdp_score", myScore);
-  localStorage.setItem("pdp_coins", coins);
-  localStorage.setItem("pdp_packs", packsOpened);
-  localStorage.setItem("pdp_collection", JSON.stringify(collection));
+  saveProgress();
   updateScoreDisplay();
   updatePackCount();
   refreshCooldowns();
-  pushScore();
   packBusy = false;
 }
 document.getElementById("openCommunBtn").addEventListener("click", ()=>openPack("commun"));
@@ -514,13 +547,6 @@ try{
   });
 }catch(e){
   document.getElementById("leaderboard").innerHTML = '<div class="empty">Classement indisponible pour le moment.</div>';
-}
-
-async function pushScore(){
-  if(!uid) return;
-  try{
-    await firestore.collection("scores").doc(uid).set({pseudo, score: myScore, packsOpened}, {merge:true});
-  }catch(e){ /* silencieux */ }
 }
 
 function renderLeaderboard(docs){
