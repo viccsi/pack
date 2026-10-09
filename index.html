@@ -718,7 +718,7 @@ function renderLeaderboard(docs){
     .sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0))
     .slice(0,15);
 
-  let html =   const total = cards.length;
+  const total = cards.length;
   const MAX_LEVEL = Object.keys(LEVEL_THRESHOLDS).length + 1; // 5
   let html = "<table><tr><th class='rank'>#</th><th>Pseudo</th><th>Score</th><th>Découvertes</th><th>★ Max</th><th>Packs</th></tr>";
   rows.forEach((r,i)=>{
