@@ -718,15 +718,21 @@ function renderLeaderboard(docs){
     .sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0))
     .slice(0,15);
 
-  let html = "<table><tr><th class='rank'>#</th><th>Pseudo</th><th>Score</th><th>Packs</th></tr>";
+  let html =   const total = cards.length;
+  const MAX_LEVEL = Object.keys(LEVEL_THRESHOLDS).length + 1; // 5
+  let html = "<table><tr><th class='rank'>#</th><th>Pseudo</th><th>Score</th><th>Découvertes</th><th>★ Max</th><th>Packs</th></tr>";
   rows.forEach((r,i)=>{
-    // Le classement identifie le joueur par son UID/document Firestore,
-    // pas uniquement par le pseudo.
     const mine = r.uid && r.uid === uid ? "me" : "";
+    // on ne compte que les cartes qui existent encore dans le jeu
+    const owned = cards.filter(c => r.collection && r.collection[c.name]);
+    const found = owned.length;
+    const maxed = owned.filter(c => Number(r.collection[c.name].level) >= MAX_LEVEL).length;
     html += `<tr class="${mine}">
       <td class="rank">${i+1}</td>
       <td>${escapeHtml(r.pseudo || "Joueur")}</td>
       <td>${Number(r.score)||0}</td>
+      <td>${found}/${total}</td>
+      <td>${maxed}/${total}</td>
       <td>${Number(r.packsOpened)||0}</td>
     </tr>`;
   });
