@@ -266,7 +266,7 @@ function resetLocalState(){
 updateScoreDisplay();
 updatePackCount();
 function updateScoreDisplay(){
-  document.getElementById("myScore").textContent = pseudo ? `${pseudo} - ${myScore} pts - 🪙${coins}` : "";
+  document.getElementById("myScore").textContent = pseudo ? `${pseudo} - ${myScore} pts - ${coins} 🪙` : "";
 }
 function updatePackCount(){
   document.getElementById("packCount").textContent = packsOpened ? `${packsOpened} pack(s) ouvert(s)` : "";
