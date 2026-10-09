@@ -137,7 +137,7 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
   <div class="pack-count" id="packCount"></div>
   <div class="reveal" id="reveal"></div>
 
-  <div class="section-title">🏆 Classement en ligne</div>
+  <div class="section-title">🏆 Classement</div>
   <div id="leaderboard"><div class="empty">Chargement…</div></div>
   </div>
 
@@ -266,7 +266,7 @@ function resetLocalState(){
 updateScoreDisplay();
 updatePackCount();
 function updateScoreDisplay(){
-  document.getElementById("myScore").textContent = pseudo ? `${pseudo} — ${myScore} pts — 🪙 ${coins}` : "";
+  document.getElementById("myScore").textContent = pseudo ? `${pseudo} - ${myScore} pts - ✨ ${coins}` : "";
 }
 function updatePackCount(){
   document.getElementById("packCount").textContent = packsOpened ? `${packsOpened} pack(s) ouvert(s)` : "";
@@ -414,7 +414,7 @@ function renderCollection(){
       const threshold = LEVEL_THRESHOLDS[entry.level];
       const cost = LEVEL_COSTS[entry.level];
       if(!threshold || entry.count < threshold) return;
-      if(coins < cost){ alert(`Pas assez de pièces — il te faut 🪙${cost} (tu as 🪙${coins})`); return; }
+      if(coins < cost){ alert(`Pas assez de pièces — il te faut ✨${cost} (tu as ✨${coins})`); return; }
       coins -= cost;
       entry.count -= threshold; // le surplus de copies est reporté au niveau suivant
       entry.level += 1;
@@ -445,6 +445,7 @@ function setAccountStatus(msg, isError){
   const el = document.getElementById("accountHint");
   el.textContent = msg;
   el.style.color = isError ? "#ff6b6b" : "";
+  el.style.display = msg ? "" : "none";
 }
 function setLoggedInUI(loggedIn){
   document.getElementById("userInput").disabled = loggedIn;
@@ -666,7 +667,7 @@ async function openPack(key){
   reveal.parentNode.insertBefore(recapTitle, reveal);
   const recapTotal = document.createElement("div");
   recapTotal.className = "recap-total";
-  recapTotal.textContent = `+${gained} pts / 🪙${gained}`;
+  recapTotal.textContent = `+${gained} pts / ✨${gained}`;
   reveal.parentNode.insertBefore(recapTotal, reveal);
   // nettoyage des anciens bilans si un pack a déjà été ouvert avant
   document.querySelectorAll(".recap-title, .recap-total").forEach(el=>{
