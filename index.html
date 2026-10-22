@@ -794,7 +794,7 @@ async function openPack(key){
     if(c.image){
       div.style.backgroundImage = `linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.55)), url('${c.image}')`;
     }
-    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${gainList[i] ? `<span class="pts">+${gainList[i]}</span>` : ""}<div class="name">${c.name}</div><div class="title">${convertedFlags[i] ? "Niveau max → +" + MAX_DUPLICATE_COINS + " 🪙" : c.title}</div>`;
+    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${gainList[i] ? `<span class="pts">+${gainList[i]}</span>` : ""}<div class="name">${c.name}</div><div class="title">${convertedFlags[i] ? "Niveau max → " + MAX_DUPLICATE_COINS + " 🪙" : c.title}</div>`;
     reveal.appendChild(div);
   });
   const recapTitle = document.createElement("div");
