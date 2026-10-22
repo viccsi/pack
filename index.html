@@ -158,6 +158,10 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
   </div>
 
   <div id="view-packs">
+  <div class="daily-box">
+    <button class="open-btn" id="dailyBtn">🎁 Récompense du jour : +100 🪙</button>
+    <div class="cooldown" id="dailyInfo" style="text-align:center"></div>
+  </div>
   <div class="pack-buttons">
     <div>
       <button class="open-btn" id="openCommunBtn">Pack Commun (1 carte)</button>
@@ -211,6 +215,7 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 const points = {commune:1, rare:5, epique:20, legendaire:50};
 // pièces gagnées par carte tirée (indépendant des points du classement)
 const coinRewards = {commune:3, rare:15, epique:60, legendaire:150};
+const DAILY_REWARD = 100;   // pièces offertes une fois par jour
 const labels = {commune:"Commune", rare:"Rare", epique:"Épique", legendaire:"Légendaire"};
 
 const rawPool = {
@@ -279,6 +284,7 @@ let myScore = 0;
 let coins = 0;
 let packsOpened = 0;
 let collection = {};
+let lastDaily = "";   // date (AAAA-MM-JJ) de la dernière récompense du jour récupérée
 // seuil de copies + coût en pièces pour passer du niveau courant au suivant
 const LEVEL_THRESHOLDS = {1:2, 2:4, 3:10, 4:20}; // niveau 5 = max, pas de seuil
 const LEVEL_COSTS = {1:10, 2:25, 3:60, 4:150};
@@ -297,7 +303,8 @@ async function saveProgress(){
     score: Number(myScore) || 0,
     coins: Number(coins) || 0,
     packsOpened: Number(packsOpened) || 0,
-    collection: migrateCollection(collection)
+    collection: migrateCollection(collection),
+    lastDaily: String(lastDaily || "")
   };
 
   // Cache séparé par UID : il ne peut pas mélanger les comptes.
@@ -318,6 +325,7 @@ async function saveProgress(){
 }
 function resetLocalState(){
   myScore = 0; coins = 0; packsOpened = 0; collection = {};
+  lastDaily = "";
   lotteryPot = 0;
   updateScoreDisplay(); updatePackCount();
 }
@@ -609,6 +617,7 @@ auth.onAuthStateChanged(async (user)=>{
       coins = cached.coins || 0;
       packsOpened = cached.packsOpened || 0;
       collection = migrateCollection(cached.collection);
+      lastDaily = cached.lastDaily || "";
     }
     document.getElementById("userInput").value = pseudo;
     updateScoreDisplay();
@@ -626,6 +635,7 @@ auth.onAuthStateChanged(async (user)=>{
         coins = Number(d.coins) || 0;
         packsOpened = Number(d.packsOpened) || 0;
         collection = migrateCollection(d.collection);
+        lastDaily = d.lastDaily || "";
         document.getElementById("userInput").value = pseudo;
         remoteLoaded = true;
       }
@@ -681,6 +691,7 @@ function refreshCooldowns(){
       cd.textContent = "";
     }
   }
+  refreshDaily();
 }
 setInterval(refreshCooldowns, 1000);
 refreshCooldowns();
@@ -782,6 +793,40 @@ async function openPack(key){
 }
 document.getElementById("openCommunBtn").addEventListener("click", ()=>openPack("commun"));
 document.getElementById("openRareteBtn").addEventListener("click", ()=>openPack("rarete"));
+
+// ---- Récompense du jour ----
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function fmtHMS(ms){
+  const s = Math.max(0, Math.ceil(ms/1000));
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return `${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+}
+function refreshDaily(){
+  const btn = document.getElementById("dailyBtn");
+  const info = document.getElementById("dailyInfo");
+  const claimed = !!uid && lastDaily === todayStr();
+  btn.disabled = claimed;
+  if(claimed){
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+    info.textContent = "Déjà récupérée — prochaine dans " + fmtHMS(midnight - now);
+  }else{
+    info.textContent = "";
+  }
+}
+function claimDaily(){
+  if(!uid){ setAccountStatus("Connecte-toi pour récupérer ta récompense du jour.", true); return; }
+  if(lastDaily === todayStr()) return;
+  lastDaily = todayStr();
+  coins += DAILY_REWARD;
+  saveProgress();
+  updateScoreDisplay();
+  refreshDaily();
+}
+document.getElementById("dailyBtn").addEventListener("click", claimDaily);
 
 // ---- Lottery : mise, quitte ou double ----
 const LOTTERY_START_CHANCE = 0.35;   // première mise
