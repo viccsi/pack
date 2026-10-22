@@ -185,7 +185,7 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
   </div>
 
   <div id="view-lottery" style="display:none">
-    <div class="section-title">🎰 Quitte ou double</div>
+    <div class="section-title">🎰 Casino</div>
     <div class="lottery-box">
       <div class="lottery-balance">Tes pièces : <b id="lotCoins">0</b> 🪙</div>
 
@@ -214,7 +214,7 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 // ---- Pool de cartes ----
 const points = {commune:1, rare:5, epique:20, legendaire:50};
 // pièces gagnées par carte tirée (indépendant des points du classement)
-const coinRewards = {commune:3, rare:15, epique:60, legendaire:150};
+const coinRewards = {commune:1, rare:5, epique:25, legendaire:50};
 const DAILY_REWARD = 100;   // pièces offertes une fois par jour
 const labels = {commune:"Commune", rare:"Rare", epique:"Épique", legendaire:"Légendaire"};
 
@@ -286,8 +286,8 @@ let packsOpened = 0;
 let collection = {};
 let lastDaily = "";   // date (AAAA-MM-JJ) de la dernière récompense du jour récupérée
 // seuil de copies + coût en pièces pour passer du niveau courant au suivant
-const LEVEL_THRESHOLDS = {1:2, 2:4, 3:10, 4:20}; // niveau 5 = max, pas de seuil
-const LEVEL_COSTS = {1:10, 2:25, 3:60, 4:150};
+const LEVEL_THRESHOLDS = {1:2, 2:4, 3:10, 4:25}; // niveau 5 = max, pas de seuil
+const LEVEL_COSTS = {1:25, 2:50, 3:100, 4:300};
 
 function localKey(){ return uid ? "pdp_account_"+uid : ""; }
 function loadLocalCache(){
