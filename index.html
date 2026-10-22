@@ -30,7 +30,7 @@ main{max-width:900px;margin:0 auto;padding:0 16px 60px}
 .pack-buttons{display:flex;flex-wrap:wrap;justify-content:center;gap:20px}
 .pack-buttons>div{flex:1 1 200px;text-align:center}
 .cooldown{margin-top:-14px;color:var(--sub);font-size:.8rem;min-height:1.2em}
-.tabs{display:flex;justify-content:center;gap:8px;margin:18px 0}
+.tabs{display:flex;justify-content:center;gap:8px;margin:18px 0;flex-wrap:wrap}
 .tab-btn{background:none;border:1px solid #333759;color:var(--sub);padding:8px 18px;border-radius:20px;font-size:.9rem;cursor:pointer}
 .tab-btn.active{background:var(--panel);color:var(--text);border-color:var(--legendaire)}
 .card.locked{filter:grayscale(1) brightness(.5);opacity:.5!important;animation:none!important}
@@ -41,8 +41,29 @@ main{max-width:900px;margin:0 auto;padding:0 16px 60px}
 .card .stars .star.star5{font-size:1.45em;line-height:.72;filter:drop-shadow(0 0 7px rgba(255,190,30,.95));animation:star5Pulse 1.1s ease-in-out infinite alternate}
 @keyframes star5Pulse{from{transform:scale(1)}to{transform:scale(1.14)}}
 
+/* couleur de chaque rareté, réutilisée par le glow, les sparkles et les orbes */
+.card.r-commune{--rc:#9aa0b8}
+.card.r-rare{--rc:#3aa0ff}
+.card.r-epique{--rc:#c65bff}
+.card.r-legendaire{--rc:#ffb23a}
+
+/* carte au niveau max : halo pulsant + sparkles dans la couleur de la rareté */
+.card.maxed{animation:maxGlow 1.6s ease-in-out infinite alternate}
+@keyframes maxGlow{
+  from{box-shadow:0 0 10px 2px var(--rc)}
+  to{box-shadow:0 0 28px 9px var(--rc)}
+}
+.sparkle{position:absolute;width:var(--s,10px);height:var(--s,10px);pointer-events:none;opacity:0;
+  background:radial-gradient(circle,#fff 30%,var(--rc) 85%);
+  clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);
+  animation:sparkle 1.8s ease-in-out infinite}
+@keyframes sparkle{
+  0%,100%{opacity:0;transform:scale(.2) rotate(0deg)}
+  50%{opacity:1;transform:scale(1) rotate(45deg)}
+}
+
 .orb-field{position:fixed;inset:0;pointer-events:none;z-index:1002;overflow:hidden}
-.orb{position:absolute;width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0 12%,#ffe78a 22%,#ffb52e 55%,rgba(255,150,20,.05) 72%);box-shadow:0 0 8px 3px rgba(255,185,45,.65),0 0 22px 8px rgba(255,160,20,.25);animation:orbFloat var(--orb-duration) ease-out forwards}
+.orb{position:absolute;width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0 12%,var(--rc,#ffb52e) 30%,var(--rc,#ffb52e) 55%,transparent 75%);box-shadow:0 0 8px 3px var(--rc,#ffb52e),0 0 22px 8px var(--rc,#ffb52e);animation:orbFloat var(--orb-duration) ease-out forwards}
 @keyframes orbFloat{
   0%{opacity:0;transform:translate3d(var(--sx),var(--sy),0) scale(.25)}
   12%{opacity:1}
@@ -96,6 +117,18 @@ tr:nth-child(even){background:rgba(255,255,255,.03)}
 .empty{color:var(--sub);font-style:italic;padding:10px 0}
 footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 .account-hint{text-align:center;color:var(--sub);font-size:.78rem;margin-top:-8px;margin-bottom:6px}
+
+/* lottery */
+.lottery-box{max-width:360px;margin:20px auto;background:var(--panel);border-radius:16px;padding:20px;text-align:center}
+.lottery-balance{color:var(--legendaire);font-weight:700;margin-bottom:14px}
+#lotBet{width:140px;text-align:center;font-size:1.2rem;padding:8px;border-radius:8px;border:1px solid #333759;background:var(--bg);color:var(--text)}
+.lot-quick{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap}
+.lot-chip{background:none;border:1px solid #333759;color:var(--text);border-radius:20px;padding:6px 14px;cursor:pointer}
+.lot-pot{font-size:1.4rem;font-weight:800;color:var(--legendaire);margin:10px 0}
+.lot-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.lot-actions .open-btn{margin:8px 0}
+.lot-msg{min-height:1.4em;margin-top:14px;font-size:.95rem}
+.lot-msg.bad{color:#ff6b6b}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-app-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-auth-compat.js"></script>
@@ -121,6 +154,7 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
   <div class="tabs">
     <button class="tab-btn active" id="tabPacks">Packs</button>
     <button class="tab-btn" id="tabCollection">Ma collection</button>
+    <button class="tab-btn" id="tabLottery">Lottery</button>
   </div>
 
   <div id="view-packs">
@@ -145,6 +179,29 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
     <div class="section-title">📚 Ta collection (<span id="collStats"></span>)</div>
     <div class="reveal" id="collectionGrid"></div>
   </div>
+
+  <div id="view-lottery" style="display:none">
+    <div class="section-title">🎰 Quitte ou double</div>
+    <div class="lottery-box">
+      <div class="lottery-balance">Tes pièces : <b id="lotCoins">0</b> 🪙</div>
+
+      <div id="lotSetup">
+        <input id="lotBet" type="number" min="1" step="1" value="10" inputmode="numeric">
+        <div class="lot-quick" id="lotQuick"></div>
+        <button class="open-btn" id="lotPlay">Miser</button>
+      </div>
+
+      <div id="lotRound" style="display:none">
+        <div class="lot-pot">Cagnotte : <b id="lotPot">0</b> 🪙</div>
+        <div class="lot-actions">
+          <button class="open-btn" id="lotDouble">Quitte ou double</button>
+          <button class="open-btn" id="lotCash" style="background:#31354d;color:#fff">Encaisser</button>
+        </div>
+      </div>
+
+      <div class="lot-msg" id="lotMsg"></div>
+    </div>
+  </div>
 </main>
 
 <footer>Made by Vic</footer>
@@ -152,6 +209,8 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 <script>
 // ---- Pool de cartes ----
 const points = {commune:1, rare:5, epique:20, legendaire:50};
+// pièces gagnées par carte tirée (indépendant des points du classement)
+const coinRewards = {commune:3, rare:15, epique:60, legendaire:150};
 const labels = {commune:"Commune", rare:"Rare", epique:"Épique", legendaire:"Légendaire"};
 
 const rawPool = {
@@ -215,6 +274,7 @@ function drawCard(){
 // ---- Etat local (chargé par compte, voir onAuthStateChanged) ----
 let uid = null;
 let pseudo = localStorage.getItem("pdp_pseudo") || "";
+let pendingPseudo = "";
 let myScore = 0;
 let coins = 0;
 let packsOpened = 0;
@@ -224,10 +284,6 @@ const LEVEL_THRESHOLDS = {1:2, 2:4, 3:10, 4:20}; // niveau 5 = max, pas de seuil
 const LEVEL_COSTS = {1:10, 2:25, 3:60, 4:150};
 
 function localKey(){ return uid ? "pdp_account_"+uid : ""; }
-function saveLocalCache(){
-  if(!uid) return;
-  localStorage.setItem(localKey(), JSON.stringify({pseudo, score:myScore, coins, packsOpened, collection}));
-}
 function loadLocalCache(){
   if(!uid) return null;
   try{ return JSON.parse(localStorage.getItem(localKey())||"null"); }catch(e){ return null; }
@@ -241,8 +297,7 @@ async function saveProgress(){
     score: Number(myScore) || 0,
     coins: Number(coins) || 0,
     packsOpened: Number(packsOpened) || 0,
-    collection: migrateCollection(collection),
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    collection: migrateCollection(collection)
   };
 
   // Cache séparé par UID : il ne peut pas mélanger les comptes.
@@ -250,7 +305,10 @@ async function saveProgress(){
 
   try{
     // Un seul document par utilisateur : scores/{uid}.
-    await firestore.collection("scores").doc(uid).set(data, {merge:true});
+    await firestore.collection("scores").doc(uid).set(
+      {...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp()},
+      {merge:true}
+    );
     return true;
   }catch(e){
     console.error("Erreur de sauvegarde Firestore:", e);
@@ -260,13 +318,16 @@ async function saveProgress(){
 }
 function resetLocalState(){
   myScore = 0; coins = 0; packsOpened = 0; collection = {};
+  lotteryPot = 0;
   updateScoreDisplay(); updatePackCount();
 }
 
 updateScoreDisplay();
 updatePackCount();
 function updateScoreDisplay(){
-  document.getElementById("myScore").textContent = pseudo ? `${pseudo} - ${myScore} pts - ${coins} 🪙` : "";
+  document.getElementById("myScore").textContent = uid ? `${myScore} pts - ${coins} 🪙` : "";
+  const lc = document.getElementById("lotCoins");
+  if(lc) lc.textContent = coins;
 }
 function updatePackCount(){
   document.getElementById("packCount").textContent = packsOpened ? `${packsOpened} pack(s) ouvert(s)` : "";
@@ -275,12 +336,15 @@ function updatePackCount(){
 // ---- Onglets ----
 document.getElementById("tabPacks").addEventListener("click", ()=>switchTab("packs"));
 document.getElementById("tabCollection").addEventListener("click", ()=>switchTab("collection"));
+document.getElementById("tabLottery").addEventListener("click", ()=>switchTab("lottery"));
 function switchTab(tab){
-  document.getElementById("view-packs").style.display = tab==="packs" ? "" : "none";
-  document.getElementById("view-collection").style.display = tab==="collection" ? "" : "none";
-  document.getElementById("tabPacks").classList.toggle("active", tab==="packs");
-  document.getElementById("tabCollection").classList.toggle("active", tab==="collection");
+  if(tab !== "lottery" && lotteryPot > 0) lotteryCash();   // on n'abandonne pas une cagnotte en changeant d'onglet
+  ["packs","collection","lottery"].forEach(t=>{
+    document.getElementById("view-"+t).style.display = t===tab ? "" : "none";
+    document.getElementById("tab"+t[0].toUpperCase()+t.slice(1)).classList.toggle("active", t===tab);
+  });
   if(tab==="collection") renderCollection();
+  if(tab==="lottery") updateLotteryUI();
 }
 function spawnOrbs(count=18, duration=1400){
   const field = document.createElement("div");
@@ -316,6 +380,8 @@ function spawnOrbsAroundCard(card, count=24){
   const field = document.createElement("div");
   field.className = "orb-field";
   document.body.appendChild(field);
+  // les orbes reprennent la couleur de la rareté de la carte
+  field.style.setProperty("--rc", getComputedStyle(card).getPropertyValue("--rc"));
 
   const rect = card.getBoundingClientRect();
   const cx = rect.left + rect.width/2;
@@ -345,6 +411,19 @@ function spawnOrbsAroundCard(card, count=24){
   setTimeout(()=>field.remove(), 1900);
 }
 
+function addSparkles(card, count=8){
+  for(let i=0;i<count;i++){
+    const s = document.createElement("span");
+    s.className = "sparkle";
+    s.style.left = (5 + Math.random()*85) + "%";
+    s.style.top = (5 + Math.random()*85) + "%";
+    s.style.setProperty("--s", (7 + Math.random()*9) + "px");
+    s.style.animationDelay = (Math.random()*1.8) + "s";
+    s.style.animationDuration = (1.4 + Math.random()*1.2) + "s";
+    card.appendChild(s);
+  }
+}
+
 function openCardZoom(c, entry){
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
@@ -368,9 +447,14 @@ function openCardZoom(c, entry){
   });
   document.body.appendChild(overlay);
 
-  // Aperçu grand écran : orbes pour une carte niveau 5 ou légendaire.
-  if(level >= 5 || c.rarity === "legendaire"){
+  // Aperçu grand écran : sparkles + glow pour une carte niveau max, orbes pour niveau max ou légendaire.
+  if(level >= 5){
+    div.classList.add("maxed");
+    addSparkles(div, 14);
+  }else if(c.rarity === "legendaire"){
     div.classList.add("orb-card-glow");
+  }
+  if(level >= 5 || c.rarity === "legendaire"){
     spawnOrbsAroundCard(div, c.rarity === "legendaire" ? 30 : 22);
   }
 }
@@ -395,6 +479,7 @@ function renderCollection(){
       const threshold = LEVEL_THRESHOLDS[level];
       const cost = LEVEL_COSTS[level];
       const canLevelUp = threshold && entry.count >= threshold;
+      const isMax = !threshold;
       const progress = threshold ? `${entry.count}/${threshold}` : "MAX";
       const stars = Array.from({length: level}, (_,i)=>`<span class="star ${i===4 ? "star5" : ""}">★</span>`).join("");
       div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><div class="stars">${stars}</div><div class="name">${c.name}</div><div class="title">${progress}</div>${canLevelUp?`<button class="lvlup-btn" data-name="${c.name}">⬆ Niv. ${level+1} — 🪙${cost}</button>`:""}`;
@@ -403,6 +488,11 @@ function renderCollection(){
         if(e.target.classList.contains("lvlup-btn")) return;
         openCardZoom(c, entry);
       });
+      if(isMax){
+        div.classList.add("maxed");
+        div.style.animation = "";   // retire le "none" posé plus haut, sinon le halo ne joue pas
+        addSparkles(div, 6);
+      }
     }
     grid.appendChild(div);
   });
@@ -460,11 +550,12 @@ document.getElementById("signupBtn").addEventListener("click", async ()=>{
   const pass = document.getElementById("passInput").value;
   if(!u || u.length < 3){ setAccountStatus("Identifiant trop court (3 caractères min).", true); return; }
   if(!pass || pass.length < 6){ setAccountStatus("Mot de passe trop court (6 caractères min).", true); return; }
+  pendingPseudo = u.slice(0,16);   // avant le await : onAuthStateChanged peut se déclencher avant la suite
   try{
     await auth.createUserWithEmailAndPassword(usernameToEmail(u), pass);
-    pseudo = u.slice(0,16);
-    localStorage.setItem("pdp_pseudo", pseudo);
+    localStorage.setItem("pdp_pseudo", pendingPseudo);
   }catch(err){
+    pendingPseudo = "";
     setAccountStatus(err.code === "auth/email-already-in-use" ? "Cet identifiant est déjà pris." : "Erreur : " + err.message, true);
   }
 });
@@ -473,16 +564,18 @@ document.getElementById("loginBtn").addEventListener("click", async ()=>{
   const u = document.getElementById("userInput").value.trim();
   const pass = document.getElementById("passInput").value;
   if(!u || !pass){ setAccountStatus("Renseigne ton identifiant et ton mot de passe.", true); return; }
+  pendingPseudo = u.slice(0,16);
   try{
     await auth.signInWithEmailAndPassword(usernameToEmail(u), pass);
-    pseudo = u.slice(0,16);
-    localStorage.setItem("pdp_pseudo", pseudo);
+    localStorage.setItem("pdp_pseudo", pendingPseudo);
   }catch(err){
+    pendingPseudo = "";
     setAccountStatus("Identifiant ou mot de passe incorrect.", true);
   }
 });
 
 document.getElementById("logoutBtn").addEventListener("click", ()=>{
+  if(lotteryPot > 0) lotteryCash();
   auth.signOut();
 });
 
@@ -502,9 +595,11 @@ function migrateCollection(coll){
 }
 
 auth.onAuthStateChanged(async (user)=>{
+  startLeaderboard();
   if(user){
     uid = user.uid;
     setLoggedInUI(true);
+    pseudo = pendingPseudo || (user.email || "").replace("@pack.local","");
 
     // affichage instantané depuis le cache local propre à ce compte, le temps de récupérer Firestore
     const cached = loadLocalCache();
@@ -518,7 +613,7 @@ auth.onAuthStateChanged(async (user)=>{
     document.getElementById("userInput").value = pseudo;
     updateScoreDisplay();
     updatePackCount();
-    setAccountStatus(`Connecté en tant que ${pseudo}`);
+    setAccountStatus("");
 
     // Firestore est la source distante de vérité pour CE UID.
     let remoteLoaded = false;
@@ -609,6 +704,7 @@ async function openPack(key){
 
   const drawn = [];
   let gained = 0;
+  let gainedCoins = 0;
   for(let i=0;i<p.count;i++){
     const c = drawCard();
     drawn.push(c);
@@ -625,6 +721,7 @@ async function openPack(key){
 
     // Phase 2 : révélation de cette carte, seule au premier plan
     gained += points[c.rarity];
+    gainedCoins += coinRewards[c.rarity];
     div.classList.remove("mystery","spawn");
     div.classList.add("flip-in");
     if(c.image){
@@ -667,7 +764,7 @@ async function openPack(key){
   reveal.parentNode.insertBefore(recapTitle, reveal);
   const recapTotal = document.createElement("div");
   recapTotal.className = "recap-total";
-  recapTotal.textContent = `+${gained} pts / 🪙${gained}`;
+  recapTotal.textContent = `+${gained} pts / 🪙${gainedCoins}`;
   reveal.parentNode.insertBefore(recapTotal, reveal);
   // nettoyage des anciens bilans si un pack a déjà été ouvert avant
   document.querySelectorAll(".recap-title, .recap-total").forEach(el=>{
@@ -675,7 +772,7 @@ async function openPack(key){
   });
 
   myScore += gained;
-  coins += gained;
+  coins += gainedCoins;
   packsOpened += 1;
   saveProgress();
   updateScoreDisplay();
@@ -686,17 +783,92 @@ async function openPack(key){
 document.getElementById("openCommunBtn").addEventListener("click", ()=>openPack("commun"));
 document.getElementById("openRareteBtn").addEventListener("click", ()=>openPack("rarete"));
 
-// ---- Leaderboard partagé (Firestore) ----
-try{
-  firestore.collection("scores").orderBy("score","desc").limit(15).onSnapshot((snap)=>{
-    const docs = snap.docs.map(d=>d.data());
-    renderLeaderboard(docs);
-  }, (err)=>{
-    document.getElementById("leaderboard").innerHTML = '<div class="empty">Classement indisponible pour le moment.</div>';
-  });
-}catch(e){
-  document.getElementById("leaderboard").innerHTML = '<div class="empty">Classement indisponible pour le moment.</div>';
+// ---- Lottery : mise, quitte ou double ----
+const LOTTERY_START_CHANCE = 0.35;   // première mise
+const LOTTERY_DOUBLE_CHANCE = 0.50;  // quitte ou double
+let lotteryPot = 0;                  // cagnotte en jeu (déjà retirée de tes pièces)
+
+function lotteryMsg(text, bad){
+  const el = document.getElementById("lotMsg");
+  el.textContent = text;
+  el.className = "lot-msg" + (bad ? " bad" : "");
 }
+// mises rapides : moins de 500 pièces → 1/10/50/100, à partir de 500 → 10/100/500/1000
+function renderQuickBets(){
+  const bets = coins < 500 ? [1,10,50,100] : [10,100,500,1000];
+  document.getElementById("lotQuick").innerHTML =
+    bets.map(b=>`<button class="lot-chip" data-bet="${b}">${b}</button>`).join("") +
+    `<button class="lot-chip" data-bet="max">Tout</button>`;
+}
+function updateLotteryUI(){
+  renderQuickBets();
+  document.getElementById("lotCoins").textContent = coins;
+  document.getElementById("lotPot").textContent = lotteryPot;
+  const inRound = lotteryPot > 0;
+  document.getElementById("lotSetup").style.display = inRound ? "none" : "";
+  document.getElementById("lotRound").style.display = inRound ? "" : "none";
+}
+function lotteryStart(){
+  if(!uid){ setAccountStatus("Connecte-toi pour jouer à la lottery.", true); return; }
+  if(lotteryPot > 0) return;
+  const bet = Math.floor(Number(document.getElementById("lotBet").value));
+  if(!(bet >= 1)){ lotteryMsg("Mise invalide.", true); return; }
+  if(bet > coins){ lotteryMsg(`Pas assez de pièces (tu as ${coins} 🪙).`, true); return; }
+  coins -= bet;
+  if(Math.random() < LOTTERY_START_CHANCE){
+    lotteryPot = bet * 2;
+    lotteryMsg(`Gagné ! La cagnotte passe à ${lotteryPot} 🪙. Encaisse, ou tente le quitte ou double.`);
+  }else{
+    lotteryMsg(`Perdu... −${bet} 🪙.`, true);
+  }
+  saveProgress(); updateScoreDisplay(); updateLotteryUI();
+}
+function lotteryDouble(){
+  if(lotteryPot <= 0) return;
+  if(Math.random() < LOTTERY_DOUBLE_CHANCE){
+    lotteryPot *= 2;
+    lotteryMsg(`Double ! La cagnotte monte à ${lotteryPot} 🪙.`);
+  }else{
+    lotteryMsg(`Perdu... la cagnotte de ${lotteryPot} 🪙 part en fumée.`, true);
+    lotteryPot = 0;
+  }
+  updateLotteryUI();
+}
+function lotteryCash(){
+  if(lotteryPot <= 0) return;
+  coins += lotteryPot;
+  lotteryMsg(`Encaissé : +${lotteryPot} 🪙 !`);
+  lotteryPot = 0;
+  saveProgress(); updateScoreDisplay(); updateLotteryUI();
+}
+document.getElementById("lotPlay").addEventListener("click", lotteryStart);
+document.getElementById("lotDouble").addEventListener("click", lotteryDouble);
+document.getElementById("lotCash").addEventListener("click", lotteryCash);
+document.getElementById("lotQuick").addEventListener("click", e=>{
+  const b = e.target.closest(".lot-chip");
+  if(!b) return;
+  document.getElementById("lotBet").value = b.dataset.bet === "max" ? coins : Number(b.dataset.bet);
+});
+// avertit si on quitte la page avec une cagnotte en jeu (elle serait perdue)
+window.addEventListener("beforeunload", e=>{
+  if(lotteryPot > 0){ e.preventDefault(); e.returnValue = ""; }
+});
+
+// ---- Leaderboard partagé (Firestore) ----
+let unsubscribeLeaderboard = null;
+function startLeaderboard(){
+  if(unsubscribeLeaderboard){ unsubscribeLeaderboard(); unsubscribeLeaderboard = null; }
+  unsubscribeLeaderboard = firestore.collection("scores")
+    .orderBy("score","desc").limit(15)
+    .onSnapshot(snap=>{
+      renderLeaderboard(snap.docs.map(d=>d.data()));
+    }, err=>{
+      console.error("Classement:", err);
+      document.getElementById("leaderboard").innerHTML =
+        '<div class="empty">Classement indisponible (' + (err.code || "erreur") + ').</div>';
+    });
+}
+startLeaderboard();
 
 function escapeHtml(value){
   return String(value ?? "")
