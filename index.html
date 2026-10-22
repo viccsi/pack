@@ -829,7 +829,7 @@ function claimDaily(){
 document.getElementById("dailyBtn").addEventListener("click", claimDaily);
 
 // ---- Lottery : mise, quitte ou double ----
-const LOTTERY_START_CHANCE = 0.35;   // première mise
+const LOTTERY_START_CHANCE = 0.40;   // première mise
 const LOTTERY_DOUBLE_CHANCE = 0.50;  // quitte ou double
 let lotteryPot = 0;                  // cagnotte en jeu (déjà retirée de tes pièces)
 
@@ -853,24 +853,30 @@ function updateLotteryUI(){
   document.getElementById("lotSetup").style.display = inRound ? "none" : "";
   document.getElementById("lotRound").style.display = inRound ? "" : "none";
 }
-function lotteryStart(){
+function lotteryStart()
+{
   if(!uid){ setAccountStatus("Connecte-toi pour jouer à la lottery.", true); return; }
   if(lotteryPot > 0) return;
   const bet = Math.floor(Number(document.getElementById("lotBet").value));
   if(!(bet >= 1)){ lotteryMsg("Mise invalide.", true); return; }
   if(bet > coins){ lotteryMsg(`Pas assez de pièces (tu as ${coins} 🪙).`, true); return; }
   coins -= bet;
-  if(Math.random() < LOTTERY_START_CHANCE){
+  if(Math.random() < LOTTERY_START_CHANCE)
+  {
     lotteryPot = bet * 2;
     lotteryMsg(`Gagné ! La cagnotte passe à ${lotteryPot} 🪙. Encaisse, ou tente le quitte ou double.`);
-  }else{
+  }
+  else
+  {
     lotteryMsg(`Perdu... −${bet} 🪙.`, true);
   }
   saveProgress(); updateScoreDisplay(); updateLotteryUI();
 }
-function lotteryDouble(){
+function lotteryDouble()
+{
   if(lotteryPot <= 0) return;
-  if(Math.random() < LOTTERY_DOUBLE_CHANCE){
+  if(Math.random() < LOTTERY_DOUBLE_CHANCE)
+  {
     lotteryPot *= 2;
     lotteryMsg(`Double ! La cagnotte monte à ${lotteryPot} 🪙.`);
   }else{
