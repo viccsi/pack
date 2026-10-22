@@ -216,6 +216,7 @@ const points = {commune:1, rare:5, epique:20, legendaire:50};
 // pièces gagnées par carte tirée (indépendant des points du classement)
 const coinRewards = {commune:1, rare:5, epique:25, legendaire:50};
 const DAILY_REWARD = 100;   // pièces offertes une fois par jour
+const MAX_DUPLICATE_COINS = 15;   // pièces données quand on tire une carte déjà au niveau max
 const labels = {commune:"Commune", rare:"Rare", epique:"Épique", legendaire:"Légendaire"};
 
 const rawPool = {
@@ -275,6 +276,18 @@ function drawCard(){
   const r = pool[Math.floor(Math.random()*pool.length)];
   const candidates = cards.filter(c=>c.rarity===r);
   return candidates[Math.floor(Math.random()*candidates.length)];
+}
+
+// ---- Score : somme, pour chaque carte possédée, de (points de sa rareté) × (multiplicateur de son niveau) ----
+const LEVEL_SCORE_MULT = {1:1, 2:2, 3:3, 4:5, 5:8};
+function cardScore(rarity, level){ return points[rarity] * (LEVEL_SCORE_MULT[level] || 1); }
+function computeScore(){
+  let total = 0;
+  for(const c of cards){
+    const e = collection[c.name];
+    if(e) total += cardScore(c.rarity, Number(e.level) || 1);
+  }
+  return total;
 }
 
 // ---- Etat local (chargé par compte, voir onAuthStateChanged) ----
@@ -517,6 +530,7 @@ function renderCollection(){
       coins -= cost;
       entry.count -= threshold; // le surplus de copies est reporté au niveau suivant
       entry.level += 1;
+      myScore = computeScore();
       saveProgress();
       updateScoreDisplay();
       renderCollection();
@@ -619,6 +633,7 @@ auth.onAuthStateChanged(async (user)=>{
       packsOpened = cached.packsOpened || 0;
       collection = migrateCollection(cached.collection);
       lastDaily = cached.lastDaily || "";
+      myScore = computeScore();
     }
     document.getElementById("userInput").value = pseudo;
     updateScoreDisplay();
@@ -638,6 +653,7 @@ auth.onAuthStateChanged(async (user)=>{
         collection = migrateCollection(d.collection);
         lastDaily = d.lastDaily || "";
         document.getElementById("userInput").value = pseudo;
+        myScore = computeScore();
         remoteLoaded = true;
       }
     }catch(e){
@@ -715,6 +731,8 @@ async function openPack(key){
   setLastOpen(key);
 
   const drawn = [];
+  const convertedFlags = [];   // true si la carte tirée était déjà au niveau max
+  const gainList = [];          // points gagnés par carte (carte nouvelle uniquement)
   let gained = 0;
   let gainedCoins = 0;
   for(let i=0;i<p.count;i++){
@@ -732,14 +750,19 @@ async function openPack(key){
     await sleep(SUSPENSE_MS[c.rarity]);
 
     // Phase 2 : révélation de cette carte, seule au premier plan
-    gained += points[c.rarity];
     gainedCoins += coinRewards[c.rarity];
     div.classList.remove("mystery","spawn");
     div.classList.add("flip-in");
+    const entryNow = collection[c.name];
+    const dupMax = !!entryNow && !LEVEL_THRESHOLDS[entryNow.level];   // déjà au niveau max
+    convertedFlags.push(dupMax);
+    const scoreGain = entryNow ? 0 : cardScore(c.rarity, 1);   // une carte déjà possédée ne rapporte pas de points
+    gained += scoreGain;
+    gainList.push(scoreGain);
     if(c.image){
       div.style.backgroundImage = `linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.55)), url('${c.image}')`;
     }
-    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><span class="pts">+${points[c.rarity]}</span><div class="name">${c.name}</div><div class="title">${c.title}</div>`;
+    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${scoreGain ? `<span class="pts">+${scoreGain}</span>` : ""}<div class="name">${c.name}</div><div class="title">${dupMax ? "Niveau max → +" + MAX_DUPLICATE_COINS + " 🪙" : c.title}</div>`;
     if(c.rarity === "legendaire"){
       const flash = document.createElement("div");
       flash.className = "screen-flash";
@@ -751,8 +774,12 @@ async function openPack(key){
       spawnOrbs(34, 1700);
       setTimeout(()=>div.classList.remove("orb-card-glow"), 1800);
     }
-    collection[c.name] = collection[c.name] || {count:0, level:1};
-    collection[c.name].count += 1;
+    if(dupMax){
+      gainedCoins += MAX_DUPLICATE_COINS;   // pas de copie ajoutée : 15 pièces à la place
+    }else{
+      collection[c.name] = collection[c.name] || {count:0, level:1};
+      collection[c.name].count += 1;
+    }
 
     if(i < p.count-1) await sleep(900); // temps pour voir la carte avant la suivante
   }
@@ -761,13 +788,13 @@ async function openPack(key){
   await sleep(600);
   reveal.className = "reveal";
   reveal.innerHTML = "";
-  drawn.forEach(c=>{
+  drawn.forEach((c,i)=>{
     const div = document.createElement("div");
     div.className = `card r-${c.rarity}`;
     if(c.image){
       div.style.backgroundImage = `linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.55)), url('${c.image}')`;
     }
-    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><span class="pts">+${points[c.rarity]}</span><div class="name">${c.name}</div><div class="title">${c.title}</div>`;
+    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${gainList[i] ? `<span class="pts">+${gainList[i]}</span>` : ""}<div class="name">${c.name}</div><div class="title">${convertedFlags[i] ? "Niveau max → +" + MAX_DUPLICATE_COINS + " 🪙" : c.title}</div>`;
     reveal.appendChild(div);
   });
   const recapTitle = document.createElement("div");
@@ -783,7 +810,7 @@ async function openPack(key){
     if(el !== recapTitle && el !== recapTotal) el.remove();
   });
 
-  myScore += gained;
+  myScore = computeScore();
   coins += gainedCoins;
   packsOpened += 1;
   saveProgress();
@@ -854,30 +881,24 @@ function updateLotteryUI(){
   document.getElementById("lotSetup").style.display = inRound ? "none" : "";
   document.getElementById("lotRound").style.display = inRound ? "" : "none";
 }
-function lotteryStart()
-{
+function lotteryStart(){
   if(!uid){ setAccountStatus("Connecte-toi pour jouer à la lottery.", true); return; }
   if(lotteryPot > 0) return;
   const bet = Math.floor(Number(document.getElementById("lotBet").value));
   if(!(bet >= 1)){ lotteryMsg("Mise invalide.", true); return; }
   if(bet > coins){ lotteryMsg(`Pas assez de pièces (tu as ${coins} 🪙).`, true); return; }
   coins -= bet;
-  if(Math.random() < LOTTERY_START_CHANCE)
-  {
+  if(Math.random() < LOTTERY_START_CHANCE){
     lotteryPot = bet * 2;
     lotteryMsg(`Gagné ! La cagnotte passe à ${lotteryPot} 🪙. Encaisse, ou tente le quitte ou double.`);
-  }
-  else
-  {
+  }else{
     lotteryMsg(`Perdu... −${bet} 🪙.`, true);
   }
   saveProgress(); updateScoreDisplay(); updateLotteryUI();
 }
-function lotteryDouble()
-{
+function lotteryDouble(){
   if(lotteryPot <= 0) return;
-  if(Math.random() < LOTTERY_DOUBLE_CHANCE)
-  {
+  if(Math.random() < LOTTERY_DOUBLE_CHANCE){
     lotteryPot *= 2;
     lotteryMsg(`Double ! La cagnotte monte à ${lotteryPot} 🪙.`);
   }else{
