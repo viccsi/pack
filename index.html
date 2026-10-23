@@ -300,7 +300,7 @@ let packsOpened = 0;
 let collection = {};
 let lastDaily = "";   // date (AAAA-MM-JJ) de la dernière récompense du jour récupérée
 // seuil de copies + coût en pièces pour passer du niveau courant au suivant
-const LEVEL_THRESHOLDS = {1:2, 2:4, 3:10, 4:25}; // niveau 5 = max, pas de seuil
+const LEVEL_THRESHOLDS = {1:4, 2:8, 3:16, 4:32}; // niveau 5 = max, pas de seuil
 const LEVEL_COSTS = {1:25, 2:50, 3:100, 4:300};
 
 function localKey(){ return uid ? "pdp_account_"+uid : ""; }
