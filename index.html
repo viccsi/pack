@@ -762,7 +762,7 @@ async function openPack(key){
     if(c.image){
       div.style.backgroundImage = `linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.55)), url('${c.image}')`;
     }
-    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${scoreGain ? `<span class="pts">+${scoreGain}</span>` : ""}<div class="name">${c.name}</div><div class="title">${dupMax ? "Niveau max → " + MAX_DUPLICATE_COINS + " 🪙" : c.title}</div>`;
+    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${scoreGain ? `<span class="pts">+${scoreGain}</span>` : ""}<div class="name">${c.name}</div><div class="title">${dupMax ? "Niveau max → " + MAX_DUPLICATE_COINS*coinRewards[c.rarity] + " 🪙" : c.title}</div>`;
     if(c.rarity === "legendaire"){
       const flash = document.createElement("div");
       flash.className = "screen-flash";
@@ -775,7 +775,7 @@ async function openPack(key){
       setTimeout(()=>div.classList.remove("orb-card-glow"), 1800);
     }
     if(dupMax){
-      gainedCoins += MAX_DUPLICATE_COINS;   // pas de copie ajoutée : 15 pièces à la place
+      gainedCoins = MAX_DUPLICATE_COINS*coinRewards[c.rarity];   // pas de copie ajoutée : 15 pièces à la place
     }else{
       collection[c.name] = collection[c.name] || {count:0, level:1};
       collection[c.name].count += 1;
@@ -794,7 +794,7 @@ async function openPack(key){
     if(c.image){
       div.style.backgroundImage = `linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.55)), url('${c.image}')`;
     }
-    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${gainList[i] ? `<span class="pts">+${gainList[i]}</span>` : ""}<div class="name">${c.name}</div><div class="title">${convertedFlags[i] ? "Niveau max → " + MAX_DUPLICATE_COINS + " 🪙" : c.title}</div>`;
+    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${gainList[i] ? `<span class="pts">+${gainList[i]}</span>` : ""}<div class="name">${c.name}</div><div class="title">${convertedFlags[i] ? "Niveau max → " + MAX_DUPLICATE_COINS*coinRewards[c.rarity] + " 🪙" : c.title}</div>`;
     reveal.appendChild(div);
   });
   const recapTitle = document.createElement("div");
@@ -803,7 +803,7 @@ async function openPack(key){
   reveal.parentNode.insertBefore(recapTitle, reveal);
   const recapTotal = document.createElement("div");
   recapTotal.className = "recap-total";
-  recapTotal.textContent = `+${gained} pts / 🪙${gainedCoins}`;
+  recapTotal.textContent = `🪙${gainedCoins}`;
   reveal.parentNode.insertBefore(recapTotal, reveal);
   // nettoyage des anciens bilans si un pack a déjà été ouvert avant
   document.querySelectorAll(".recap-title, .recap-total").forEach(el=>{
