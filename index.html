@@ -138,6 +138,11 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 .prog-txt{font-size:.7rem;text-align:center;margin-top:3px;opacity:.95}
 .stage-wrap .card .prog-bar{height:8px}
 .stage-wrap .card .prog-txt{font-size:.85rem}
+/* bouton d'amélioration : placé sous la barre au lieu de la recouvrir */
+.reveal .card .lvlup-btn{position:static;display:block;width:100%;margin-top:6px}
+/* barre plus lisible sur la carte en grand */
+.modal-overlay .card .prog-bar{height:9px}
+.modal-overlay .card .prog-txt{font-size:.9rem}
   
 </style>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-app-compat.js"></script>
@@ -472,7 +477,7 @@ function openCardZoom(c, entry){
   const threshold = LEVEL_THRESHOLDS[level];
   const progress = threshold ? `${entry.count}/${threshold}` : "MAX";
   const stars = Array.from({length: level}, (_,i)=>`<span class="star ${i===4 ? "star5" : ""}">★</span>`).join("");
-  div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><div class="stars">${stars}</div><div class="name">${c.name}</div><div class="title">${progress}</div>`;
+  div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><div class="stars">${stars}</div><div class="name">${c.name}</div>${progressHTML(c.name)}`;
   const closeBtn = document.createElement("button");
   closeBtn.className = "modal-close";
   closeBtn.textContent = "✕";
@@ -518,7 +523,7 @@ function renderCollection(){
       const isMax = !threshold;
       const progress = threshold ? `${entry.count}/${threshold}` : "MAX";
       const stars = Array.from({length: level}, (_,i)=>`<span class="star ${i===4 ? "star5" : ""}">★</span>`).join("");
-      div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><div class="stars">${stars}</div><div class="name">${c.name}</div><div class="title">${progress}</div>${canLevelUp?`<button class="lvlup-btn" data-name="${c.name}">⬆ Niv. ${level+1} — 🪙${cost}</button>`:""}`;
+      div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><div class="stars">${stars}</div><div class="name">${c.name}</div>${progressHTML(c.name)}${canLevelUp?`<button class="lvlup-btn" data-name="${c.name}">⬆ Niv. ${level+1} — 🪙${cost}</button>`:""}`;
       div.style.cursor = "pointer";
       div.addEventListener("click", (e)=>{
         if(e.target.classList.contains("lvlup-btn")) return;
