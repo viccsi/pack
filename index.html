@@ -148,6 +148,9 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 .tab-btn{position:relative}
 .tab-badge{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:#ff3b30;color:#fff;font-size:.7rem;font-weight:700;line-height:20px;text-align:center;box-shadow:0 0 0 2px var(--bg)}
 .tab-badge[hidden]{display:none}
+.tab-badge.pop{animation:badgePop .35s ease}
+@keyframes badgePop{40%{transform:scale(1.35)}}
+@media (prefers-reduced-motion: reduce){.tab-badge.pop{animation:none}}
   
 </style>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-app-compat.js"></script>
@@ -323,6 +326,7 @@ let coins = 0;
 let packsOpened = 0;
 let collection = {};
 let lastDaily = "";   // date (AAAA-MM-JJ) de la dernière récompense du jour récupérée
+let lastBadge = -1;   // dernier nombre affiché sur la pastille (pour déclencher l'animation quand il change)
 // seuil de copies + coût en pièces pour passer du niveau courant au suivant
 const LEVEL_THRESHOLDS = {1:4, 2:8, 3:16, 4:32}; // niveau 5 = max, pas de seuil
 const LEVEL_COSTS = {1:25, 2:50, 3:100, 4:300};
@@ -381,6 +385,13 @@ function updateUpgradeBadge(){
   b.textContent = n > 9 ? "9+" : n;
   b.setAttribute("aria-label", n + " carte(s) à améliorer");
   b.hidden = n === 0;
+  // petit rebond quand le nombre change
+  if(n !== lastBadge && n > 0){
+    b.classList.remove("pop");
+    void b.offsetWidth;   // force le navigateur à relancer l'animation
+    b.classList.add("pop");
+  }
+  lastBadge = n;
 }
   
 updateScoreDisplay();
