@@ -129,6 +129,16 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 .lot-actions .open-btn{margin:8px 0}
 .lot-msg{min-height:1.4em;margin-top:14px;font-size:.95rem}
 .lot-msg.bad{color:#ff6b6b}
+
+/* progression des copies vers le prochain niveau */
+.prog{margin-top:6px}
+.prog-bar{height:6px;border-radius:99px;background:rgba(0,0,0,.45);overflow:hidden}
+.prog-bar span{display:block;height:100%;border-radius:99px;background:var(--rc,#ffb23a);transition:width .7s ease}
+.prog.ready .prog-bar span{background:#ffd23a;box-shadow:0 0 8px #ffd23a}
+.prog-txt{font-size:.7rem;text-align:center;margin-top:3px;opacity:.95}
+.stage-wrap .card .prog-bar{height:8px}
+.stage-wrap .card .prog-txt{font-size:.85rem}
+  
 </style>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-app-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-auth-compat.js"></script>
@@ -210,6 +220,10 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 
 <footer>Made by Vic</footer>
 
+
+
+
+  
 <script>
 // ---- Pool de cartes ----
 const points = {commune:1, rare:5, epique:20, legendaire:50};
@@ -718,6 +732,22 @@ const SUSPENSE_MS = {commune:700, rare:1400, epique:2100, legendaire:3000};
 
 function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
+// barre + compteur "copies / seuil" de la carte (fromCount = ancien total, pour l'animation)
+function progressHTML(name, fromCount){
+  const e = collection[name];
+  if(!e) return "";
+  const th = LEVEL_THRESHOLDS[e.level];
+  if(!th) return `<div class="prog ready"><div class="prog-bar"><span style="width:100%"></span></div><div class="prog-txt">NIVEAU MAX</div></div>`;
+  const pct = n => Math.min(100, Math.round(n / th * 100));
+  const start = fromCount === undefined ? e.count : fromCount;
+  return `<div class="prog${e.count >= th ? " ready" : ""}"><div class="prog-bar"><span data-w="${pct(e.count)}" style="width:${pct(start)}%"></span></div><div class="prog-txt">${e.count}/${th}</div></div>`;
+}
+function animateProgress(root){
+  root.querySelectorAll(".prog-bar span[data-w]").forEach(s=>{
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ s.style.width = s.dataset.w + "%"; }));
+  });
+}
+  
 async function openPack(key){
   if(!uid){ document.getElementById("userInput").focus(); setAccountStatus("Connecte-toi ou crée un compte pour ouvrir un pack.", true); return; }
   if(remainingMs(key) > 0 || packBusy) return;
@@ -775,10 +805,15 @@ async function openPack(key){
       setTimeout(()=>div.classList.remove("orb-card-glow"), 1800);
     }
     if(dupMax){
-      gainedCoins = MAX_DUPLICATE_COINS*coinRewards[c.rarity];   // pas de copie ajoutée : 15 pièces à la place
+      // pas de copie ajoutée : la récompense de ce tirage devient MAX_DUPLICATE_COINS × la récompense de la rareté
+      gainedCoins += MAX_DUPLICATE_COINS*coinRewards[c.rarity] - coinRewards[c.rarity];
     }else{
+      const prevCount = collection[c.name] ? collection[c.name].count : 0;
       collection[c.name] = collection[c.name] || {count:0, level:1};
       collection[c.name].count += 1;
+      // barre de progression sous la carte, animée de l'ancien total vers le nouveau
+      div.insertAdjacentHTML("beforeend", progressHTML(c.name, prevCount));
+      animateProgress(div);
     }
 
     if(i < p.count-1) await sleep(900); // temps pour voir la carte avant la suivante
@@ -794,7 +829,7 @@ async function openPack(key){
     if(c.image){
       div.style.backgroundImage = `linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.55)), url('${c.image}')`;
     }
-    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${gainList[i] ? `<span class="pts">+${gainList[i]}</span>` : ""}<div class="name">${c.name}</div><div class="title">${convertedFlags[i] ? "Niveau max → " + MAX_DUPLICATE_COINS*coinRewards[c.rarity] + " 🪙" : c.title}</div>`;
+    div.innerHTML = `<span class="rar">${labels[c.rarity]}</span>${gainList[i] ? `<span class="pts">+${gainList[i]}</span>` : ""}<div class="name">${c.name}</div><div class="title">${convertedFlags[i] ? "Niveau max → " + MAX_DUPLICATE_COINS*coinRewards[c.rarity] + " 🪙" : c.title}</div>${convertedFlags[i] ? "" : progressHTML(c.name)}</div>`;
     reveal.appendChild(div);
   });
   const recapTitle = document.createElement("div");
