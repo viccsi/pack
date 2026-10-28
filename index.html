@@ -88,7 +88,7 @@ main{max-width:900px;margin:0 auto;padding:0 16px 60px}
 @keyframes mysteryPulse{from{box-shadow:0 0 6px 2px var(--glow-color, rgba(255,255,255,.4))}to{box-shadow:0 0 30px 12px var(--glow-color, rgba(255,255,255,.4))}}
 .card.flip-in{animation:flipReveal .45s ease forwards}
 @keyframes flipReveal{from{opacity:1;transform:rotateY(90deg) scale(.9)}to{opacity:1;transform:rotateY(0) scale(1)}}
-.screen-flash{position:fixed;inset:0;background:#fff;pointer-events:none;z-index:999;opacity:0;animation:flashPop .5s ease-out forwards}
+.screen-flash{position:fixed;inset:0;background:#fff;pointer-events:none;z-index:1003;opacity:0;animation:flashPop .5s ease-out forwards}
 @keyframes flashPop{0%{opacity:0}15%{opacity:.9}100%{opacity:0}}
 .card .name{font-weight:700;font-size:1rem}
 .card .title{font-size:.72rem;opacity:.85}
@@ -99,6 +99,20 @@ main{max-width:900px;margin:0 auto;padding:0 16px 60px}
 .stage-wrap .card .name{font-size:1.2rem}
 .stage-wrap .card .title{font-size:.85rem}
 .stage-wrap .card .qmark{font-size:3rem}
+
+/* révélation plein écran */
+.pack-overlay{position:fixed;inset:0;z-index:1001;background:radial-gradient(circle at 50% 40%,#1b2040,#07080f 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;cursor:pointer}
+.pack-stage{display:flex;justify-content:center;align-items:center;width:100%}
+.pack-stage .card{width:min(78vw,340px);height:auto;aspect-ratio:220/290;max-height:72vh}
+.pack-stage .card .name{font-size:1.5rem}
+.pack-stage .card .title{font-size:1rem}
+.pack-stage .card .rar{font-size:.85rem}
+.pack-stage .card .pts{font-size:.95rem}
+.pack-stage .card .qmark{font-size:4rem}
+.pack-stage .card .prog-bar{height:10px}
+.pack-stage .card .prog-txt{font-size:1rem}
+.pack-counter{color:var(--sub);font-size:.9rem;letter-spacing:.5px;min-height:1.2em}
+.pack-hint{color:var(--sub);font-size:.9rem;min-height:1.2em}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px;cursor:pointer}
 .modal-overlay .card{width:min(80vw,280px);aspect-ratio:220/290;height:auto;max-height:75vh;cursor:default}
 .modal-overlay .card .name{font-size:1.3rem}
@@ -793,9 +807,22 @@ async function openPack(key){
   document.getElementById("openRareteBtn").disabled = true;
   const p = PACKS[key];
   const reveal = document.getElementById("reveal");
-  reveal.className = "stage-wrap";
+  reveal.className = "reveal";
   reveal.innerHTML = "";
   setLastOpen(key);
+
+  // écran de révélation plein écran
+  const overlay = document.createElement("div");
+  overlay.className = "pack-overlay";
+  overlay.innerHTML = `<div class="pack-counter"></div><div class="pack-stage"></div><div class="pack-hint"></div>`;
+  document.body.appendChild(overlay);
+  const stage = overlay.querySelector(".pack-stage");
+  const counter = overlay.querySelector(".pack-counter");
+  const hint = overlay.querySelector(".pack-hint");
+
+  // On tire tout le pack d'abord, puis on trie de la moins rare à la plus rare.
+  const RARITY_ORDER = {commune:0, rare:1, epique:2, legendaire:3};
+  const draws = Array.from({length:p.count}, drawCard).sort((a,b)=>RARITY_ORDER[a.rarity]-RARITY_ORDER[b.rarity]);
 
   const drawn = [];
   const convertedFlags = [];   // true si la carte tirée était déjà au niveau max
@@ -803,16 +830,17 @@ async function openPack(key){
   let gained = 0;
   let gainedCoins = 0;
   for(let i=0;i<p.count;i++){
-    const c = drawCard();
+    const c = draws[i];
     drawn.push(c);
+    if(p.count > 1) counter.textContent = `${i+1} / ${p.count}`;
 
     // Phase 1 : carte mystère au premier plan, pulsation colorée selon la rareté
-    reveal.innerHTML = "";
+    stage.innerHTML = "";
     const div = document.createElement("div");
     div.className = `card r-${c.rarity} mystery spawn`;
     div.style.setProperty("--glow-color", GLOW_COLORS[c.rarity]);
     div.innerHTML = `<span class="qmark">?</span>`;
-    reveal.appendChild(div);
+    stage.appendChild(div);
 
     await sleep(SUSPENSE_MS[c.rarity]);
 
@@ -857,7 +885,19 @@ async function openPack(key){
   }
 
   // Bilan du pack : toutes les cartes obtenues, résumées
-  await sleep(600);
+  // Sauvegarder avant l'attente du clic, pour ne pas perdre la progression.
+  myScore = computeScore();
+  coins += gainedCoins;
+  packsOpened += 1;
+  saveProgress();
+  updateScoreDisplay();
+  updatePackCount();
+
+  hint.textContent = "Touche pour continuer";
+  await new Promise(r => overlay.addEventListener("click", r, {once:true}));
+  overlay.remove();
+
+  await sleep(150);
   reveal.className = "reveal";
   reveal.innerHTML = "";
   drawn.forEach((c,i)=>{
@@ -882,12 +922,6 @@ async function openPack(key){
     if(el !== recapTitle && el !== recapTotal) el.remove();
   });
 
-  myScore = computeScore();
-  coins += gainedCoins;
-  packsOpened += 1;
-  saveProgress();
-  updateScoreDisplay();
-  updatePackCount();
   refreshCooldowns();
   packBusy = false;
 }
