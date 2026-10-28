@@ -279,7 +279,7 @@ function drawCard(){
 }
 
 // ---- Score : somme, pour chaque carte possédée, de (points de sa rareté) × (multiplicateur de son niveau) ----
-const LEVEL_SCORE_MULT = {1:1, 2:2, 3:3, 4:5, 5:8};
+const LEVEL_SCORE_MULT = {1:1, 2:3, 3:6, 4:10, 5:15};
 function cardScore(rarity, level){ return points[rarity] * (LEVEL_SCORE_MULT[level] || 1); }
 function computeScore(){
   let total = 0;
@@ -677,7 +677,7 @@ auth.onAuthStateChanged(async (user)=>{
 let packBusy = false;
 const PACKS = {
   commun:  {cooldownMs: 30*1000, count:1, label:"Pack Commun",  btnId:"openCommunBtn", cdId:"cdCommun"},
-  rarete:  {cooldownMs: 3*60*1000, count:3, label:"Pack Rareté",  btnId:"openRareteBtn", cdId:"cdRarete"}
+  rarete:  {cooldownMs: 4*60*1000, count:3, label:"Pack Rareté",  btnId:"openRareteBtn", cdId:"cdRarete"}
 };
 function cooldownKey(key){
   return uid ? `pdp_last_${uid}_${key}` : `pdp_last_${key}`;
@@ -714,7 +714,7 @@ setInterval(refreshCooldowns, 1000);
 refreshCooldowns();
 
 const GLOW_COLORS = {commune:"#9aa0b8", rare:"#3aa0ff", epique:"#c65bff", legendaire:"#ffb23a"};
-const SUSPENSE_MS = {commune:800, rare:1400, epique:2100, legendaire:3000};
+const SUSPENSE_MS = {commune:700, rare:1400, epique:2100, legendaire:3000};
 
 function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
@@ -866,9 +866,9 @@ function lotteryMsg(text, bad){
   el.textContent = text;
   el.className = "lot-msg" + (bad ? " bad" : "");
 }
-// mises rapides : moins de 500 pièces → 1/10/50/100, à partir de 500 → 10/100/500/1000
+// mises rapides : moins de 500 pièces → 1/3/5/10, à partir de 500 → 1/10/50/100
 function renderQuickBets(){
-  const bets = coins < 500 ? [1,10,50,100] : [10,100,500,1000];
+  const bets = coins < 500 ? [1,3,5,10] : [1,10,50,100];
   document.getElementById("lotQuick").innerHTML =
     bets.map(b=>`<button class="lot-chip" data-bet="${b}">${b}</button>`).join("") +
     `<button class="lot-chip" data-bet="max">Tout</button>`;
