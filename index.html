@@ -143,6 +143,11 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 /* barre plus lisible sur la carte en grand */
 .modal-overlay .card .prog-bar{height:9px}
 .modal-overlay .card .prog-txt{font-size:.9rem}
+
+/* pastille rouge : nombre de cartes à améliorer */
+.tab-btn{position:relative}
+.tab-badge{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:#ff3b30;color:#fff;font-size:.7rem;font-weight:700;line-height:20px;text-align:center;box-shadow:0 0 0 2px var(--bg)}
+.tab-badge[hidden]{display:none}
   
 </style>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-app-compat.js"></script>
@@ -168,7 +173,7 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 <main>
   <div class="tabs">
     <button class="tab-btn active" id="tabPacks">Packs</button>
-    <button class="tab-btn" id="tabCollection">Ma collection</button>
+    <button class="tab-btn" id="tabCollection">Ma collection<span class="tab-badge" id="collBadge" hidden></span></button>
     <button class="tab-btn" id="tabLottery">Lottery</button>
   </div>
 
@@ -363,12 +368,28 @@ function resetLocalState(){
   updateScoreDisplay(); updatePackCount();
 }
 
+// nombre de cartes qui ont assez de copies pour monter de niveau (comme le bouton « ⬆ Niv. X »)
+function updateUpgradeBadge(){
+  let n = 0;
+  for(const c of cards){
+    const e = collection[c.name];
+    if(!e) continue;
+    const th = LEVEL_THRESHOLDS[e.level];
+    if(th && e.count >= th) n++;
+  }
+  const b = document.getElementById("collBadge");
+  b.textContent = n > 9 ? "9+" : n;
+  b.setAttribute("aria-label", n + " carte(s) à améliorer");
+  b.hidden = n === 0;
+}
+  
 updateScoreDisplay();
 updatePackCount();
 function updateScoreDisplay(){
   document.getElementById("myScore").textContent = uid ? `${myScore} pts - ${coins} 🪙` : "";
   const lc = document.getElementById("lotCoins");
   if(lc) lc.textContent = coins;
+  updateUpgradeBadge();
 }
 function updatePackCount(){
   document.getElementById("packCount").textContent = packsOpened ? `${packsOpened} pack(s) ouvert(s)` : "";
