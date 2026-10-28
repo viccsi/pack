@@ -523,7 +523,7 @@ function renderCollection(){
       const isMax = !threshold;
       const progress = threshold ? `${entry.count}/${threshold}` : "MAX";
       const stars = Array.from({length: level}, (_,i)=>`<span class="star ${i===4 ? "star5" : ""}">★</span>`).join("");
-      div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><div class="stars">${stars}</div><div class="name">${c.name}</div>${progressHTML(c.name)}${canLevelUp?`<button class="lvlup-btn" data-name="${c.name}">⬆ Niv. ${level+1} — 🪙${cost}</button>`:""}`;
+      div.innerHTML = `<span class="rar">${labels[c.rarity]}</span><div class="stars">${stars}</div><div class="name">${c.name}</div>${canLevelUp ? `<button class="lvlup-btn" data-name="${c.name}">⬆ Niv. ${level+1} — 🪙${cost}</button>` : progressHTML(c.name)}`;
       div.style.cursor = "pointer";
       div.addEventListener("click", (e)=>{
         if(e.target.classList.contains("lvlup-btn")) return;
