@@ -165,6 +165,11 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 .tab-badge.pop{animation:badgePop .35s ease}
 @keyframes badgePop{40%{transform:scale(1.35)}}
 @media (prefers-reduced-motion: reduce){.tab-badge.pop{animation:none}}
+
+/* tri de la collection */
+.sort-bar{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin:12px 0 0;color:var(--sub);font-size:.85rem}
+.sort-btn{background:none;border:1px solid #333759;color:var(--sub);padding:5px 14px;border-radius:20px;font-size:.85rem;cursor:pointer}
+.sort-btn.active{background:var(--panel);color:var(--text);border-color:var(--legendaire)}
   
 </style>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-app-compat.js"></script>
@@ -218,6 +223,12 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 
   <div id="view-collection" style="display:none">
     <div class="section-title">📚 Ta collection (<span id="collStats"></span>)</div>
+    <div class="sort-bar" role="group" aria-label="Trier la collection">
+      <span>Trier par :</span>
+      <button class="sort-btn active" data-sort="default">Défaut</button>
+      <button class="sort-btn" data-sort="rarity">Rareté</button>
+      <button class="sort-btn" data-sort="level">Niveau</button>
+    </div>
     <div class="reveal" id="collectionGrid"></div>
   </div>
 
@@ -545,6 +556,33 @@ function openCardZoom(c, entry){
     spawnOrbsAroundCard(div, c.rarity === "legendaire" ? 30 : 22);
   }
 }
+
+// ---- Tri de la collection ----
+let collSort = localStorage.getItem("pdp_collsort") || "default";
+const RARITY_RANK = {commune:0, rare:1, epique:2, legendaire:3};
+function sortedCards(){
+  const list = cards.map((c,i)=>({c,i}));
+  if(collSort === "default") return cards;   // ordre d'origine (par rareté puis ordre de rawPool)
+  list.sort((a,b)=>{
+    const ea = collection[a.c.name], eb = collection[b.c.name];
+    if(!!ea !== !!eb) return ea ? -1 : 1;   // les cartes pas encore trouvées restent à la fin
+    const la = ea ? ea.level : 0, lb = eb ? eb.level : 0;
+    const ra = RARITY_RANK[a.c.rarity], rb = RARITY_RANK[b.c.rarity];
+    if(collSort === "rarity") return (rb - ra) || (lb - la) || (a.i - b.i);   // plus rares d'abord
+    return (lb - la) || (rb - ra) || (a.i - b.i);                               // niveaux les plus hauts d'abord
+  });
+  return list.map(x=>x.c);
+}
+function updateSortButtons(){
+  document.querySelectorAll(".sort-btn").forEach(b=>b.classList.toggle("active", b.dataset.sort === collSort));
+}
+document.querySelectorAll(".sort-btn").forEach(b=>b.addEventListener("click", ()=>{
+  collSort = b.dataset.sort;
+  localStorage.setItem("pdp_collsort", collSort);
+  updateSortButtons();
+  renderCollection();
+}));
+updateSortButtons();
 
 function renderCollection(){
   const grid = document.getElementById("collectionGrid");
