@@ -170,6 +170,21 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 .sort-bar{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin:12px 0 0;color:var(--sub);font-size:.85rem}
 .sort-btn{background:none;border:1px solid #333759;color:var(--sub);padding:5px 14px;border-radius:20px;font-size:.85rem;cursor:pointer}
 .sort-btn.active{background:var(--panel);color:var(--text);border-color:var(--legendaire)}
+
+/* page d'accueil */
+.splash{position:fixed;inset:0;z-index:2000;background:radial-gradient(circle at 50% 35%,#1b2040,#07080f 75%);color:#f2f2f7;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer;text-align:center;outline:none;transition:opacity .45s ease,visibility .45s}
+.splash.hide{opacity:0;visibility:hidden;pointer-events:none}
+.splash-inner{max-width:520px;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px}
+.splash-title{font-size:clamp(2.6rem,12vw,4.6rem);font-weight:800;line-height:1.05;letter-spacing:.5px;background:linear-gradient(135deg,#ff5ea3,#ff9a3a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.splash-by{font-size:1.2rem;color:#9a9fc2}
+.splash-version{font-size:.95rem;font-weight:700;color:#ffb23a;margin-top:6px}
+.splash-notes{width:100%;max-height:34vh;overflow:auto;text-align:left;background:rgba(255,255,255,.06);border-radius:14px;padding:14px 18px;margin-top:14px;font-size:.9rem;line-height:1.5;color:#e4e6f5}
+.splash-notes[hidden]{display:none}
+.splash-notes-title{font-weight:700;color:#fff}
+.splash-notes ul{margin:6px 0 0;padding-left:18px}
+.splash-tap{margin-top:22px;font-size:.95rem;color:#9a9fc2;animation:tapPulse 1.6s ease-in-out infinite}
+@keyframes tapPulse{0%,100%{opacity:.45}50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.splash-tap{animation:none}.splash{transition:none}}
   
 </style>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-app-compat.js"></script>
@@ -177,6 +192,15 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
+<div class="splash" id="splash" role="button" tabindex="0" aria-label="Toucher l'écran pour lancer le jeu">
+  <div class="splash-inner">
+    <div class="splash-title">Pack de Potes</div>
+    <div class="splash-by">by Vic</div>
+    <div class="splash-version" id="splashVersion"></div>
+    <div class="splash-notes" id="splashNotes"></div>
+    <div class="splash-tap">Touche l'écran pour jouer</div>
+  </div>
+</div>
 <header>
   <h1>Pack</h1>
   <div class="sub">Ouvre des packs, collectionne, grimpe au classement</div>
@@ -263,6 +287,32 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 
   
 <script>
+// ================= PAGE D'ACCUEIL =================
+// À chaque mise à jour : change le numéro de version et décris les changements ci-dessous.
+// Une ligne = un changement. Tu peux utiliser un peu de HTML (<b>gras</b>). Liste vide [] = pas de bloc "Nouveautés".
+const APP_VERSION = "1.0";
+const UPDATE_NOTES = ["Première version du jeu !",];
+
+(function initSplash(){
+  const splash = document.getElementById("splash");
+  document.getElementById("splashVersion").textContent = "Version " + APP_VERSION;
+  const box = document.getElementById("splashNotes");
+  if(UPDATE_NOTES.length){
+    box.innerHTML = `<div class="splash-notes-title">Nouveautés de la version ${APP_VERSION}</div><ul>${UPDATE_NOTES.map(n=>`<li>${n}</li>`).join("")}</ul>`;
+  }else{
+    box.hidden = true;
+  }
+  function close(){
+    splash.classList.add("hide");
+    setTimeout(()=>splash.remove(), 600);
+  }
+  splash.addEventListener("click", close);
+  splash.addEventListener("keydown", e=>{
+    if(e.key === "Enter" || e.key === " "){ e.preventDefault(); close(); }
+  });
+  splash.focus();
+})();
+
 // ---- Pool de cartes ----
 const points = {commune:1, rare:5, epique:20, legendaire:50};
 // pièces gagnées par carte tirée (indépendant des points du classement)
