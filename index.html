@@ -775,9 +775,49 @@ function migrateCollection(coll){
 }
 
 auth.onAuthStateChanged(async (user)=>{
-startLeaderboard();
-startCoinBoard();
-if(user){
+  startLeaderboard();
+  startCoinBoard();
+  if(user){
+    uid = user.uid;
+    setLoggedInUI(true);
+    pseudo = pendingPseudo || (user.email || "").replace("@pack.local","");
+
+    // affichage instantané depuis le cache local propre à ce compte, le temps de récupérer Firestore
+    const cached = loadLocalCache();
+    if(cached){
+      pseudo = cached.pseudo || pseudo;
+      myScore = cached.score || 0;
+      coins = cached.coins || 0;
+      packsOpened = cached.packsOpened || 0;
+      collection = migrateCollection(cached.collection);
+      lastDaily = cached.lastDaily || "";
+      myScore = computeScore();
+    }
+    document.getElementById("userInput").value = pseudo;
+    updateScoreDisplay();
+    updatePackCount();
+    setAccountStatus("");
+
+    // Firestore est la source distante de vérité pour CE UID.
+    let remoteLoaded = false;
+    try{
+      const doc = await firestore.collection("scores").doc(uid).get();
+      if(doc.exists){
+        const d = doc.data() || {};
+        pseudo = d.pseudo || pseudo;
+        myScore = Number(d.score) || 0;
+        coins = Number(d.coins) || 0;
+        packsOpened = Number(d.packsOpened) || 0;
+        collection = migrateCollection(d.collection);
+        lastDaily = d.lastDaily || "";
+        document.getElementById("userInput").value = pseudo;
+        myScore = computeScore();
+        remoteLoaded = true;
+      }
+    }catch(e){
+      console.error("Lecture Firestore impossible:", e);
+    }
+
     updateScoreDisplay();
     updatePackCount();
     // Ne jamais écraser Firestore avec un cache potentiellement ancien si la lecture distante a échoué.
