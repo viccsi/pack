@@ -835,7 +835,7 @@ auth.onAuthStateChanged(async (user)=>{
 let packBusy = false;
 const PACKS = {
   commun:  {cooldownMs: 30*1000, count:1, label:"Pack Commun",  btnId:"openCommunBtn", cdId:"cdCommun"},
-  rarete:  {cooldownMs: 4*60*1000, count:3, label:"Pack Rareté",  btnId:"openRareteBtn", cdId:"cdRarete"}
+  rarete:  {cooldownMs: 3*60*1000, count:3, label:"Pack Rareté",  btnId:"openRareteBtn", cdId:"cdRarete"}
 };
 function cooldownKey(key){
   return uid ? `pdp_last_${uid}_${key}` : `pdp_last_${key}`;
@@ -974,7 +974,7 @@ async function openPack(key){
       animateProgress(div);
     }
 
-    if(i < p.count-1) await sleep(900); // temps pour voir la carte avant la suivante
+    if(i < p.count-1) await sleep(1000); // temps pour voir la carte avant la suivante
   }
 
   // Bilan du pack : toutes les cartes obtenues, résumées
