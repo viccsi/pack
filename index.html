@@ -775,89 +775,9 @@ function migrateCollection(coll){
 }
 
 auth.onAuthStateChanged(async (user)=>{
-  startLeaderboard();
-  auth.onAuthStateChanged(async (user)=>{
-  startLeaderboard();
-  startCoinBoard();
-  if(user){
-  
-  // ---- Classement des pièces (Firestore) ----
-  let unsubscribeCoinBoard = null;
-  function startCoinBoard(){
-    if(unsubscribeCoinBoard){ unsubscribeCoinBoard(); unsubscribeCoinBoard = null; }
-    unsubscribeCoinBoard = firestore.collection("scores")
-      .orderBy("coins","desc").limit(15)
-      .onSnapshot(snap=>{
-        renderCoinBoard(snap.docs.map(d=>d.data()));
-      }, err=>{
-        console.error("Classement pièces:", err);
-        document.getElementById("coinBoard").innerHTML =
-          '<div class="empty">Classement indisponible (' + (err.code || "erreur") + ').</div>';
-      });
-  }
-  startCoinBoard();
-  
-  function renderCoinBoard(docs){
-    const el = document.getElementById("coinBoard");
-    const rows = (docs || []).filter(r => Number(r.coins) > 0).slice(0,15);
-    if(!rows.length){
-      el.innerHTML = '<div class="empty">Personne n\'a encore de pièces.</div>';
-      return;
-    }
-    const medals = ["🥇","🥈","🥉"];
-    let html = "<table><tr><th class='rank'>#</th><th>Pseudo</th><th>Pièces</th></tr>";
-    rows.forEach((r,i)=>{
-      const mine = r.uid && r.uid === uid ? "me" : "";
-      html += `<tr class="${mine}">
-        <td class="rank">${medals[i] || (i+1)}</td>
-        <td>${escapeHtml(r.pseudo || "Joueur")}</td>
-        <td>${Number(r.coins)||0} 🪙</td>
-      </tr>`;
-    });
-    html += "</table>";
-    el.innerHTML = html;
-  }
-  if(user){
-    uid = user.uid;
-    setLoggedInUI(true);
-    pseudo = pendingPseudo || (user.email || "").replace("@pack.local","");
-
-    // affichage instantané depuis le cache local propre à ce compte, le temps de récupérer Firestore
-    const cached = loadLocalCache();
-    if(cached){
-      pseudo = cached.pseudo || pseudo;
-      myScore = cached.score || 0;
-      coins = cached.coins || 0;
-      packsOpened = cached.packsOpened || 0;
-      collection = migrateCollection(cached.collection);
-      lastDaily = cached.lastDaily || "";
-      myScore = computeScore();
-    }
-    document.getElementById("userInput").value = pseudo;
-    updateScoreDisplay();
-    updatePackCount();
-    setAccountStatus("");
-
-    // Firestore est la source distante de vérité pour CE UID.
-    let remoteLoaded = false;
-    try{
-      const doc = await firestore.collection("scores").doc(uid).get();
-      if(doc.exists){
-        const d = doc.data() || {};
-        pseudo = d.pseudo || pseudo;
-        myScore = Number(d.score) || 0;
-        coins = Number(d.coins) || 0;
-        packsOpened = Number(d.packsOpened) || 0;
-        collection = migrateCollection(d.collection);
-        lastDaily = d.lastDaily || "";
-        document.getElementById("userInput").value = pseudo;
-        myScore = computeScore();
-        remoteLoaded = true;
-      }
-    }catch(e){
-      console.error("Lecture Firestore impossible:", e);
-    }
-
+startLeaderboard();
+startCoinBoard();
+if(user){
     updateScoreDisplay();
     updatePackCount();
     // Ne jamais écraser Firestore avec un cache potentiellement ancien si la lecture distante a échoué.
@@ -1181,6 +1101,42 @@ function startLeaderboard(){
     });
 }
 startLeaderboard();
+// ---- Classement des pièces (Firestore) ----
+let unsubscribeCoinBoard = null;
+function startCoinBoard(){
+  if(unsubscribeCoinBoard){ unsubscribeCoinBoard(); unsubscribeCoinBoard = null; }
+  unsubscribeCoinBoard = firestore.collection("scores")
+    .orderBy("coins","desc").limit(15)
+    .onSnapshot(snap=>{
+      renderCoinBoard(snap.docs.map(d=>d.data()));
+    }, err=>{
+      console.error("Classement pièces:", err);
+      document.getElementById("coinBoard").innerHTML =
+        '<div class="empty">Classement indisponible (' + (err.code || "erreur") + ').</div>';
+    });
+}
+startCoinBoard();
+
+function renderCoinBoard(docs){
+  const el = document.getElementById("coinBoard");
+  const rows = (docs || []).filter(r => Number(r.coins) > 0).slice(0,15);
+  if(!rows.length){
+    el.innerHTML = '<div class="empty">Personne n\'a encore de pièces.</div>';
+    return;
+  }
+  const medals = ["🥇","🥈","🥉"];
+  let html = "<table><tr><th class='rank'>#</th><th>Pseudo</th><th>Pièces</th></tr>";
+  rows.forEach((r,i)=>{
+    const mine = r.uid && r.uid === uid ? "me" : "";
+    html += `<tr class="${mine}">
+      <td class="rank">${medals[i] || (i+1)}</td>
+      <td>${escapeHtml(r.pseudo || "Joueur")}</td>
+      <td>${Number(r.coins)||0} 🪙</td>
+    </tr>`;
+  });
+  html += "</table>";
+  el.innerHTML = html;
+}
 
 function escapeHtml(value){
   return String(value ?? "")
