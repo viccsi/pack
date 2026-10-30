@@ -279,6 +279,8 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
 
       <div class="lot-msg" id="lotMsg"></div>
     </div>
+    <div class="section-title">💰 Classement des pièces</div>
+    <div id="coinBoard"><div class="empty">Chargement…</div></div>
   </div>
 </main>
 
@@ -774,6 +776,47 @@ function migrateCollection(coll){
 
 auth.onAuthStateChanged(async (user)=>{
   startLeaderboard();
+  auth.onAuthStateChanged(async (user)=>{
+  startLeaderboard();
+  startCoinBoard();
+  if(user){
+  
+  // ---- Classement des pièces (Firestore) ----
+  let unsubscribeCoinBoard = null;
+  function startCoinBoard(){
+    if(unsubscribeCoinBoard){ unsubscribeCoinBoard(); unsubscribeCoinBoard = null; }
+    unsubscribeCoinBoard = firestore.collection("scores")
+      .orderBy("coins","desc").limit(15)
+      .onSnapshot(snap=>{
+        renderCoinBoard(snap.docs.map(d=>d.data()));
+      }, err=>{
+        console.error("Classement pièces:", err);
+        document.getElementById("coinBoard").innerHTML =
+          '<div class="empty">Classement indisponible (' + (err.code || "erreur") + ').</div>';
+      });
+  }
+  startCoinBoard();
+  
+  function renderCoinBoard(docs){
+    const el = document.getElementById("coinBoard");
+    const rows = (docs || []).filter(r => Number(r.coins) > 0).slice(0,15);
+    if(!rows.length){
+      el.innerHTML = '<div class="empty">Personne n\'a encore de pièces.</div>';
+      return;
+    }
+    const medals = ["🥇","🥈","🥉"];
+    let html = "<table><tr><th class='rank'>#</th><th>Pseudo</th><th>Pièces</th></tr>";
+    rows.forEach((r,i)=>{
+      const mine = r.uid && r.uid === uid ? "me" : "";
+      html += `<tr class="${mine}">
+        <td class="rank">${medals[i] || (i+1)}</td>
+        <td>${escapeHtml(r.pseudo || "Joueur")}</td>
+        <td>${Number(r.coins)||0} 🪙</td>
+      </tr>`;
+    });
+    html += "</table>";
+    el.innerHTML = html;
+  }
   if(user){
     uid = user.uid;
     setLoggedInUI(true);
