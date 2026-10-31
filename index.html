@@ -285,6 +285,8 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
     </div>
     <div class="section-title">💰 Classement des pièces</div>
     <div id="coinBoard"><div class="empty">Chargement…</div></div>
+    <div class="section-title">🏆 Plus gros bénéfice net de la semaine</div>
+    <div id="weeklyBest"><div class="empty">Chargement…</div></div>
   </div>
 </main>
 
@@ -434,7 +436,8 @@ async function saveProgress(){
     coins: Number(coins) || 0,
     packsOpened: Number(packsOpened) || 0,
     collection: migrateCollection(collection),
-    lastDaily: String(lastDaily || "")
+    lastDaily: String(lastDaily || ""),
+    weeklyBest: weeklyBest && weeklyBest.week === currentWeekKey() ? weeklyBest : null
   };
 
   // Cache séparé par UID : il ne peut pas mélanger les comptes.
@@ -456,7 +459,9 @@ async function saveProgress(){
 function resetLocalState(){
   myScore = 0; coins = 0; packsOpened = 0; collection = {};
   lastDaily = "";
+  weeklyBest = null;
   lotteryPot = 0;
+  lotteryBet = 0;
   updateScoreDisplay(); updatePackCount();
 }
 
@@ -800,6 +805,7 @@ auth.onAuthStateChanged(async (user)=>{
       packsOpened = cached.packsOpened || 0;
       collection = migrateCollection(cached.collection);
       lastDaily = cached.lastDaily || "";
+      weeklyBest = cached.weeklyBest || null;
       myScore = computeScore();
     }
     document.getElementById("userInput").value = pseudo;
@@ -819,6 +825,7 @@ auth.onAuthStateChanged(async (user)=>{
         packsOpened = Number(d.packsOpened) || 0;
         collection = migrateCollection(d.collection);
         lastDaily = d.lastDaily || "";
+        weeklyBest = d.weeklyBest || null;
         document.getElementById("userInput").value = pseudo;
         myScore = computeScore();
         remoteLoaded = true;
@@ -1071,6 +1078,40 @@ document.getElementById("dailyBtn").addEventListener("click", claimDaily);
 const LOTTERY_START_CHANCE = 0.44;   // première mise
 const LOTTERY_DOUBLE_CHANCE = 0.55;  // quitte ou double
 let lotteryPot = 0;                  // cagnotte en jeu (déjà retirée de tes pièces)
+let lotteryBet = 0;                  // mise initiale de la manche, conservée jusqu'à l'encaissement
+let weeklyBest = null;               // record personnel de bénéfice net pour la semaine en cours
+
+// Clé de semaine ISO (lundi-dimanche), calculée en heure locale.
+function currentWeekKey(date = new Date()){
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-S${String(week).padStart(2,"0")}`;
+}
+function renderWeeklyBest(docs){
+  const el = document.getElementById("weeklyBest");
+  if(!el) return;
+  const week = currentWeekKey();
+  const rows = (docs || [])
+    .map(r => r.data || r)
+    .filter(r => r.weeklyBest && r.weeklyBest.week === week && Number(r.weeklyBest.net) > 0)
+    .sort((a,b) => Number(b.weeklyBest.net) - Number(a.weeklyBest.net));
+  if(!rows.length){
+    el.innerHTML = '<div class="empty">Aucun bénéfice net enregistré cette semaine.</div>';
+    return;
+  }
+  const best = rows[0];
+  const record = best.weeklyBest;
+  const dateText = record.date ? new Date(record.date).toLocaleString("fr-FR") : "";
+  el.innerHTML = `<div class="lottery-box" style="max-width:none;margin:10px 0">
+    <div style="font-size:.85rem;color:var(--sub)">👑 ${escapeHtml(best.pseudo || "Joueur")}</div>
+    <div style="font-size:1.8rem;font-weight:800;color:#45d483;margin:8px 0">+${Number(record.net).toLocaleString("fr-FR")} 🪙</div>
+    <div style="font-size:.85rem">Mise : ${Number(record.bet)||0} 🪙 · Gain encaissé : ${Number(record.gain)||0} 🪙</div>
+    ${dateText ? `<div style="font-size:.75rem;color:var(--sub);margin-top:6px">${dateText}</div>` : ""}
+  </div>`;
+}
 
 function lotteryMsg(text, bad){
   const el = document.getElementById("lotMsg");
@@ -1099,6 +1140,7 @@ function lotteryStart(){
   if(!(bet >= 1)){ lotteryMsg("Mise invalide.", true); return; }
   if(bet > coins){ lotteryMsg(`Pas assez de pièces (tu as ${coins} 🪙).`, true); return; }
   coins -= bet;
+  lotteryBet = bet;
   if(Math.random() < LOTTERY_START_CHANCE){
     lotteryPot = bet * 2;
     lotteryMsg(`Gagné ! La cagnotte passe à ${lotteryPot} 🪙. Encaisse, ou tente le quitte ou double.`);
@@ -1120,10 +1162,21 @@ function lotteryDouble(){
 }
 function lotteryCash(){
   if(lotteryPot <= 0) return;
-  coins += lotteryPot;
-  lotteryMsg(`Encaissé : +${lotteryPot} 🪙 !`);
+  const gain = lotteryPot;
+  const net = gain - lotteryBet;
+  coins += gain;
+  if(net > 0){
+    const week = currentWeekKey();
+    if(!weeklyBest || weeklyBest.week !== week || net > Number(weeklyBest.net || 0)){
+      weeklyBest = {week, net, bet:lotteryBet, gain, date:Date.now()};
+    }
+  }
+  lotteryMsg(`Encaissé : +${gain} 🪙 ! Bénéfice net : ${net >= 0 ? "+" : ""}${net} 🪙.`);
   lotteryPot = 0;
+  lotteryBet = 0;
   saveProgress(); updateScoreDisplay(); updateLotteryUI();
+  // Met à jour le record partagé dès que le document Firestore est sauvegardé.
+  if(typeof unsubscribeCoinBoard !== "undefined") startCoinBoard();
 }
 document.getElementById("lotPlay").addEventListener("click", lotteryStart);
 document.getElementById("lotDouble").addEventListener("click", lotteryDouble);
@@ -1160,11 +1213,15 @@ function startCoinBoard(){
   unsubscribeCoinBoard = firestore.collection("scores")
     .orderBy("coins","desc").limit(15)
     .onSnapshot(snap=>{
-      renderCoinBoard(snap.docs.map(d=>d.data()));
+      const docs = snap.docs.map(d=>d.data());
+      renderCoinBoard(docs);
+      renderWeeklyBest(docs);
     }, err=>{
       console.error("Classement pièces:", err);
       document.getElementById("coinBoard").innerHTML =
         '<div class="empty">Classement indisponible (' + (err.code || "erreur") + ').</div>';
+      document.getElementById("weeklyBest").innerHTML =
+        '<div class="empty">Record hebdomadaire indisponible.</div>';
     });
 }
 startCoinBoard();
