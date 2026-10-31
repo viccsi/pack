@@ -239,6 +239,10 @@ footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px}
       <button class="open-btn" id="openRareteBtn">Pack Rare (3 cartes)</button>
       <div class="cooldown" id="cdRarete"></div>
     </div>
+    <div>
+      <button class="open-btn" id="openMegaBtn">Pack Epique (5 cartes)</button>
+      <div class="cooldown" id="cdMega"></div>
+    </div>
   </div>
   <div class="pack-count" id="packCount"></div>
   <div class="reveal" id="reveal"></div>
@@ -841,6 +845,7 @@ let packBusy = false;
 const PACKS = {
   commun:  {cooldownMs: 30*1000, count:1, label:"Pack Commun",  btnId:"openCommunBtn", cdId:"cdCommun"},
   rarete:  {cooldownMs: 3*60*1000, count:3, label:"Pack Rareté",  btnId:"openRareteBtn", cdId:"cdRarete"}
+  mega:  {cooldownMs: 60*60*1000, count:5, label:"Pack Mega",  btnId:"openMegaBtn", cdId:"cdMega"}
 };
 function cooldownKey(key){
   return uid ? `pdp_last_${uid}_${key}` : `pdp_last_${key}`;
