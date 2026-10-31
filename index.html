@@ -908,6 +908,7 @@ async function openPack(key){
   packBusy = true;
   document.getElementById("openCommunBtn").disabled = true;
   document.getElementById("openRareteBtn").disabled = true;
+  document.getElementById("openMegaBtn").disabled = true;
   const p = PACKS[key];
   const reveal = document.getElementById("reveal");
   reveal.className = "reveal";
